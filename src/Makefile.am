@@ -29,7 +29,7 @@ include Makefile.sources
 AM_CFLAGS = -I$(DRM_INC_DIR)
 
 libhidrmdrivers_la_LTLIBRARIES = libhidrmdrivers.la
-libhidrmdrivers_la_LDFLAGS = -release $(LT_RELEASE) -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
+libhidrmdrivers_la_LDFLAGS = -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
 libhidrmdrivers_la_LIBADD = $(DEP_LIBS)
 
 LIBHIDRMDRIVERS_SOURCE_FILES = \

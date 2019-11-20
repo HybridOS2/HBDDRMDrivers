@@ -54,6 +54,7 @@ dkms.conf
 # autoconf intermediate files
 Makefile
 Makefile.in
+build/
 /ltmain.sh
 .dirstamp
 .deps/

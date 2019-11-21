@@ -20,6 +20,7 @@
 
 lib_files = files('drivers.c', 'drivers.h')
 
+priv_reqs = ['minigui', 'libdrm']
 if with_intel
   lib_files += files(
     'intel/intel-batchbuffer.h',
@@ -27,6 +28,7 @@ if with_intel
     'intel/intel-i915-driver.c',
     'intel/intel-reg.h',
   )
+  priv_reqs += 'libdrm-intel'
 endif
 
 libhidrmdrivers = shared_library(
@@ -45,9 +47,8 @@ install_headers(
 pkg.generate(
   name : 'libhidrmdrivers',
   libraries : libhidrmdrivers,
-  subdirs : ['.', 'intel'],
   version : meson.project_version(),
-  requires : 'libdrm',
+  requires : priv_reqs,
   description : 'DRM Drivers for MiniGUI DRM engine',
 )
 

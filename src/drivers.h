@@ -44,7 +44,7 @@ extern "C" {
 #endif  /* __cplusplus */
 
 #ifdef HAVE_DRM_INTEL
-DriDriverOps* _drm_device_get_i915_driver(int device_fd);
+DrmDriverOps* _drm_device_get_i915_driver(int device_fd);
 #endif
 
 #ifdef __cplusplus

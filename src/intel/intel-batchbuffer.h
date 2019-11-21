@@ -56,7 +56,7 @@
 
 struct intel_batchbuffer;
 
-static int intel_batchbuffer_flush(struct _DriDriver *driver, unsigned int flags);
+static int intel_batchbuffer_flush(struct _DrmDriver *driver, unsigned int flags);
 
 static inline uint32_t float_as_int(float f)
 {
@@ -75,14 +75,14 @@ static inline uint32_t float_as_int(float f)
  * work...
  */
 static inline unsigned
-intel_batchbuffer_space(struct _DriDriver *driver)
+intel_batchbuffer_space(struct _DrmDriver *driver)
 {
    return (driver->batch.bo->size - driver->batch.reserved_space)
       - driver->batch.used*4;
 }
 
 static inline void
-intel_batchbuffer_emit_dword(struct _DriDriver *driver, GLuint dword)
+intel_batchbuffer_emit_dword(struct _DrmDriver *driver, GLuint dword)
 {
 #ifdef _DEBUG
    assert(intel_batchbuffer_space(driver) >= 4);
@@ -91,13 +91,13 @@ intel_batchbuffer_emit_dword(struct _DriDriver *driver, GLuint dword)
 }
 
 static inline void
-intel_batchbuffer_emit_float(struct _DriDriver *driver, float f)
+intel_batchbuffer_emit_float(struct _DrmDriver *driver, float f)
 {
    intel_batchbuffer_emit_dword(driver, float_as_int(f));
 }
 
 static inline void
-intel_batchbuffer_require_space(struct _DriDriver *driver,
+intel_batchbuffer_require_space(struct _DrmDriver *driver,
                                 GLuint sz)
 {
 #ifdef _DEBUG
@@ -108,7 +108,7 @@ intel_batchbuffer_require_space(struct _DriDriver *driver,
 }
 
 static inline void
-intel_batchbuffer_begin(struct _DriDriver *driver, int n)
+intel_batchbuffer_begin(struct _DrmDriver *driver, int n)
 {
    intel_batchbuffer_require_space(driver, n * 4);
 
@@ -119,7 +119,7 @@ intel_batchbuffer_begin(struct _DriDriver *driver, int n)
 }
 
 static inline void
-intel_batchbuffer_advance(struct _DriDriver *driver)
+intel_batchbuffer_advance(struct _DrmDriver *driver)
 {
 #ifdef _DEBUG
    struct intel_batchbuffer *batch = &driver->batch;

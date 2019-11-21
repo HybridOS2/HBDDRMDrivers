@@ -56,7 +56,7 @@
 
 #include "drivers.h"
 
-extern DriDriverOps* __dri_ex_driver_get(const char* driver_name, int device_fd)
+extern DrmDriverOps* __drm_ex_driver_get(const char* driver_name, int device_fd)
 {
     _MG_PRINTF("%s called with driver name: %s\n", __func__, driver_name);
 

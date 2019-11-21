@@ -15,12 +15,11 @@
 **
 ** This driver is derived from Mesa.
 **
-** Copyright (C) 2019 FMSoft (http://www.fmsoft.cn).
+** Copyright (C) 2019 FMSoft Technologies (http://www.fmsoft.cn).
 **
 ** Copyright notice of Mesa:
 **
 ** Copyright 2003 VMware, Inc.
-** All Rights Reserved.
 **
 ** Permission is hereby granted, free of charge, to any person obtaining a
 ** copy of this software and associated documentation files (the

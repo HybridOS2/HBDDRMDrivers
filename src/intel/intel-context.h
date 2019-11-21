@@ -14,7 +14,6 @@
  *
  * Copyright 2003 VMware, Inc.
  * Copyright 2019 FMSoft (http://www.fmsoft.cn).
- * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the

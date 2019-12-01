@@ -48,7 +48,7 @@
 #include <string.h>
 #include <time.h>
 
-#undef _DEBUG
+#define _DEBUG
 #include <minigui/common.h>
 #include <minigui/minigui.h>
 #include <minigui/gdi.h>
@@ -212,8 +212,8 @@ static DrmDriver* i915_create_driver (int device_fd)
 
 static void i915_destroy_driver (DrmDriver *driver)
 {
-    _DBG_PRINTF ("%s: destroying driver buffer manager: %d buffers left\n",
-            __func__, driver->nr_buffers);
+    _DBG_PRINTF ("destroying driver buffer manager: %d buffers left\n",
+            driver->nr_buffers);
 
     intel_batchbuffer_free(driver);
     drm_intel_bufmgr_destroy (driver->manager);
@@ -344,7 +344,7 @@ static my_surface_buffer* i915_create_buffer_helper (DrmDriver *driver,
 
     driver->nr_buffers++;
 
-    _DBG_PRINTF("%s: Buffer object (%u) created\n", __func__, buffer_id);
+    _DBG_PRINTF("Buffer object (%u) created\n", buffer_id);
     return buffer;
 }
 
@@ -704,8 +704,8 @@ static void i915_destroy_buffer (DrmDriver *driver,
 
     free (my_buffer);
 
-    _DBG_PRINTF("%s: Buffer object (%u) destroied\n",
-            __func__, buffer_id);
+    _DBG_PRINTF("Buffer object (%u) destroied\n",
+            my_buffer->base.id);
 }
 
 static unsigned int translate_raster_op(enum DrmColorLogicOp logicop)
@@ -793,8 +793,8 @@ static int i915_check_blit (DrmDriver *driver,
     if (src_buf->drm_format == dst_buf->drm_format)
         return 0;
 
-    _DBG_PRINTF("%s: CANNOT blit src_buf(%p) to dst_buf(%p)\n",
-            __func__, src_buf, dst_buf);
+    _DBG_PRINTF("CANNOT blit src_buf(%p) to dst_buf(%p)\n",
+            src_buf, dst_buf);
     return -1;
 }
 
@@ -850,17 +850,18 @@ static int i915_copy_blit (DrmDriver *driver,
 
     intel_batchbuffer_require_space(driver, 8 * 4);
 
-    _DBG_PRINTF("%s src:buf(%p)/%d+%d %d,%d dst:buf(%p)/%d+%d %d,%d sz:%dx%d\n",
-            __func__,
+    _DBG_PRINTF("src:buf(%p)/%d+%d %d,%d dst:buf(%p)/%d+%d %d,%d sz:%dx%d\n",
             src_bo, src_pitch, src_offset, src_x, src_y,
             dst_bo, dst_pitch, dst_offset, dst_x, dst_y, w, h);
+
+    _DBG_PRINTF("src cpp: %d\n", cpp);
 
     /* Blit pitch must be dword-aligned.  Otherwise, the hardware appears to drop
      * the low bits.  Offsets must be naturally aligned.
      */
     if (src_pitch % 4 != 0 || dst_pitch % 4 != 0) {
-        _DBG_PRINTF("%s pitches are not dword-aligned: src_pitch(%d), dst_pitch(%d)\n",
-                __func__, src_pitch, dst_pitch);
+        _DBG_PRINTF("pitches are not dword-aligned: src_pitch(%d), dst_pitch(%d)\n",
+                src_pitch, dst_pitch);
         return -1;
     }
 

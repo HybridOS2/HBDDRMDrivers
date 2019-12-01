@@ -48,7 +48,7 @@
 #include <string.h>
 #include <time.h>
 
-#define _DEBUG
+#undef _DEBUG
 #include <minigui/common.h>
 #include <minigui/minigui.h>
 #include <minigui/gdi.h>
@@ -854,7 +854,7 @@ static int i915_copy_blit (DrmDriver *driver,
             src_bo, src_pitch, src_offset, src_x, src_y,
             dst_bo, dst_pitch, dst_offset, dst_x, dst_y, w, h);
 
-    _DBG_PRINTF("src cpp: %d\n", cpp);
+    _DBG_PRINTF("src cpp: %d src offset(%d)\n", cpp, src_offset);
 
     /* Blit pitch must be dword-aligned.  Otherwise, the hardware appears to drop
      * the low bits.  Offsets must be naturally aligned.

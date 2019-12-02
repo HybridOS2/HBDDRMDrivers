@@ -112,11 +112,7 @@ static int intel_do_flush_locked(struct _DrmDriver *driver, unsigned int flags)
                 flags);
     }
     else {
-        _ERR_PRINTF("drm_intel_bo_subdata failed: %s\n", strerror(-ret));
-    }
-
-    if (ret != 0) {
-        _ERR_PRINTF("intel_do_flush_locked failed(%p): %s\n",
+        _ERR_PRINTF("drm_intel_bo_subdata failed (%p): %s\n",
                 batch->bo, strerror(-ret));
         assert(0);
     }

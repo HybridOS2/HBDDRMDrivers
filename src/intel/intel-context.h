@@ -46,6 +46,7 @@
 #include <drm.h>
 #include <i915_drm.h>
 #include <libdrm/intel_bufmgr.h>
+#include <libdrm/intel_chipset.h>
 
 #define DV_PF_555  (1<<8)
 #define DV_PF_565  (2<<8)
@@ -85,12 +86,15 @@ struct intel_batchbuffer {
 /* the driver data struct */
 struct _DrmDriver {
     int device_fd;
+
     drm_intel_bufmgr *manager;
 
     struct intel_batchbuffer batch;
     unsigned int maxBatchSize;
 
     int nr_buffers;
+    int gen;
+    uint32_t chip_id;
 };
 
 #endif /* _DRM_MINIGUI_INTEL_CONTEXT_H_ */

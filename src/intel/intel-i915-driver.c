@@ -48,7 +48,7 @@
 #include <string.h>
 #include <time.h>
 
-#undef _DEBUG
+#define _DEBUG
 #include <minigui/common.h>
 #include <minigui/minigui.h>
 #include <minigui/gdi.h>
@@ -69,8 +69,12 @@
 
 #include <xf86drm.h>
 #include <xf86drmMode.h>
-#include <intel_bufmgr.h>
 
+#include <libudev.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h> /* open(), close() */
 #include "drivers.h"
 #include "intel-reg.h"
 #include "intel-context.h"
@@ -181,11 +185,103 @@ static void intel_batchbuffer_emit_mi_flush(struct _DrmDriver *driver)
     intel_batchbuffer_flush(driver, I915_EXEC_RENDER);
 }
 
+static const char *
+get_udev_property(struct udev_device *device, const char *name)
+{
+    struct udev_list_entry *entry;
+
+    udev_list_entry_foreach (entry,
+                            udev_device_get_properties_list_entry (device))
+    {
+       if (strcmp (udev_list_entry_get_name (entry), name) == 0)
+           return udev_list_entry_get_value (entry);
+    }
+
+    return NULL;
+}
+
+static int get_intel_chip_id (DrmDriver *driver, int fd)
+{
+    struct stat st;
+    struct udev *udev = NULL;
+    struct udev_device *device = NULL;
+
+    if (fstat (fd, &st) < 0 || ! S_ISCHR (st.st_mode)) {
+        _ERR_PRINTF ("%s: bad file descriptor: %d.\n",
+            __func__, fd);
+        return -1;
+    }
+
+    udev = udev_new ();
+    device = udev_device_new_from_devnum (udev, 'c', st.st_rdev);
+    if (device != NULL) {
+        struct udev_device *parent;
+        const char *pci_id;
+        uint32_t vendor_id;
+        uint32_t chip_id;
+
+        parent = udev_device_get_parent (device);
+        pci_id = get_udev_property (parent, "PCI_ID");
+        if (pci_id == NULL || sscanf (pci_id, "%x:%x", &vendor_id, &chip_id) != 2) {
+            _ERR_PRINTF ("%s: bad udev property %s.\n",
+                __func__, pci_id);
+            goto failed;
+        }
+
+        if (vendor_id != 0x8086) {
+            _ERR_PRINTF ("%s: Not an Intel GPU (%X:%X).\n",
+                __func__, vendor_id, chip_id);
+            goto failed;
+        }
+
+        driver->chip_id = chip_id;
+        if (intel_get_genx(chip_id, &driver->gen))
+            ;
+        else if (IS_GEN8(chip_id))
+            driver->gen = 8;
+        else if (IS_GEN7(chip_id))
+            driver->gen = 7;
+        else if (IS_GEN6(chip_id))
+            driver->gen = 6;
+        else if (IS_GEN5(chip_id))
+            driver->gen = 5;
+        else if (IS_GEN4(chip_id))
+            driver->gen = 4;
+        else if (IS_9XX(chip_id))
+            driver->gen = 3;
+        else {
+            assert(IS_GEN2(chip_id));
+            driver->gen = 2;
+        }
+
+        _DBG_PRINTF("chip id: %u, generation: %d\n", chip_id, driver->gen);
+    }
+
+    udev_device_unref (device);
+    udev_unref (udev);
+    return 0;
+
+failed:
+    if (device)
+        udev_device_unref (device);
+    if (udev)
+        udev_unref (udev);
+
+    return -1;
+}
+
 static DrmDriver* i915_create_driver (int device_fd)
 {
     DrmDriver *driver;
 
     driver = calloc (1, sizeof (DrmDriver));
+    if (get_intel_chip_id (driver, device_fd)) {
+        _ERR_PRINTF ("%s: failed to get genenration of the Intel GPU.\n",
+            __func__);
+        free (driver);
+        return NULL;
+    }
+
     driver->device_fd = device_fd;
 
     driver->manager = drm_intel_bufmgr_gem_init (driver->device_fd, BATCH_SZ);
@@ -771,7 +867,7 @@ static int i915_clear_buffer (DrmDriver *driver,
 
     if (drm_intel_bufmgr_check_aperture_space(aper_array,
                 TABLESIZE(aper_array)) != 0) {
-        intel_batchbuffer_flush(driver, I915_EXEC_BLT);
+        intel_batchbuffer_flush(driver, (driver->gen > 2) ? I915_EXEC_BLT : I915_EXEC_RENDER);
     }
 
     intel_batchbuffer_begin(driver, 6);
@@ -784,7 +880,7 @@ static int i915_clear_buffer (DrmDriver *driver,
             0);
     intel_batchbuffer_emit_dword(driver, clear_value);
     intel_batchbuffer_advance(driver);
-    intel_batchbuffer_flush(driver, I915_EXEC_BLT);
+    intel_batchbuffer_flush(driver, (driver->gen > 2) ? I915_EXEC_BLT : I915_EXEC_RENDER);
 
     intel_batchbuffer_emit_mi_flush(driver);
     return 0;
@@ -853,7 +949,7 @@ static int i915_copy_blit (DrmDriver *driver,
         aper_array[2] = src_bo;
 
         if (dri_bufmgr_check_aperture_space(aper_array, 3) != 0) {
-            intel_batchbuffer_flush(driver, I915_EXEC_BLT);
+            intel_batchbuffer_flush(driver, (driver->gen > 2) ? I915_EXEC_BLT : I915_EXEC_RENDER);
             pass++;
         } else
             break;
@@ -916,7 +1012,7 @@ static int i915_copy_blit (DrmDriver *driver,
             I915_GEM_DOMAIN_RENDER, 0,
             src_offset);
     intel_batchbuffer_advance(driver);
-    intel_batchbuffer_flush(driver, I915_EXEC_BLT);
+    intel_batchbuffer_flush(driver, (driver->gen > 2) ? I915_EXEC_BLT : I915_EXEC_RENDER);
 
     intel_batchbuffer_emit_mi_flush(driver);
     return -1;

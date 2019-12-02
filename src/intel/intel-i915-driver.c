@@ -793,7 +793,18 @@ static int i915_clear_buffer (DrmDriver *driver,
 static int i915_check_blit (DrmDriver *driver,
             DrmSurfaceBuffer* src_buf, DrmSurfaceBuffer* dst_buf)
 {
-    if (src_buf->drm_format == dst_buf->drm_format)
+    drm_intel_bo *src_bo, *dst_bo;
+    uint32_t src_tiling_mode, src_swizzle_mode;
+    uint32_t dst_tiling_mode, dst_swizzle_mode;
+
+    src_bo = ((my_surface_buffer*)src_buf)->bo;
+    dst_bo = ((my_surface_buffer*)dst_buf)->bo;
+    drm_intel_bo_get_tiling(src_bo, &src_tiling_mode, &src_swizzle_mode);
+    drm_intel_bo_get_tiling(dst_bo, &dst_tiling_mode, &dst_swizzle_mode);
+
+    if (src_tiling_mode == dst_tiling_mode &&
+            src_swizzle_mode == dst_swizzle_mode &&
+            src_buf->drm_format == dst_buf->drm_format)
         return 0;
 
     _DBG_PRINTF("CANNOT blit src_buf(%p) to dst_buf(%p)\n",

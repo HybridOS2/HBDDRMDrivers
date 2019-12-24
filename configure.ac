@@ -65,7 +65,7 @@ AC_HEADER_SYS_WAIT
 AC_HEADER_TIME
 AC_CHECK_HEADERS(sys/time.h unistd.h)
 
-PKG_CHECK_MODULES([MINIGUI], [minigui >= 4.1.0])
+PKG_CHECK_MODULES([MINIGUI], [minigui >= 4.0.4])
 PKG_CHECK_MODULES(DRM, [libudev >= 200, libdrm >= 2.4], video_drm="yes",
     video_drm="no; this package requires libdrm 2.4+ and libudev 200+")
 if test "x$video_drm" = "xyes"; then

@@ -35,7 +35,7 @@ null_dep = dependency('', required : false)
 pkg = import('pkgconfig')
 
 # check required dependencies
-dep_minigui = dependency('minigui', version : '>= 4.1.0', required: true)
+dep_minigui = dependency('minigui', version : '>= 4.0.4', required: true)
 dep_libdrm = dependency('libdrm', version : '>= 2.5.0', required: true)
 
 # Arguments for the preprocessor, put these in a separate array from the C and

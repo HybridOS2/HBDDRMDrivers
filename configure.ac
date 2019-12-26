@@ -76,7 +76,7 @@ else
     AC_MSG_WARN([$video_drm])
 fi
 
-PKG_CHECK_MODULES(DRM, [libdrm_intel >= 2.4], video_drm_intel="yes",
+PKG_CHECK_MODULES(DRM_INTEL, [libdrm_intel >= 2.4], video_drm_intel="yes",
     video_drm_intel="no; the package requires libdrm_intel 2.4+")
 if test "x$video_drm_intel" = "xyes"; then
     CPPFLAGS="$CPPFLAGS -DHAVE_DRM_INTEL"

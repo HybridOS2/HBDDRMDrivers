@@ -20,7 +20,7 @@
 
 lib_files = files('drivers.c', 'drivers.h')
 
-priv_reqs = ['minigui', 'libdrm']
+priv_reqs = ['minigui', 'libdrm', 'libudev']
 if with_intel
   lib_files += files(
     'intel/intel-batchbuffer.h',
@@ -36,7 +36,7 @@ libhidrmdrivers = shared_library(
   [
     lib_files
   ],
-  dependencies : [dep_minigui, dep_libdrm, dep_drm_intel],
+  dependencies : [dep_minigui, dep_libudev, dep_libdrm, dep_drm_intel],
   install : true,
   version : meson.project_version(),
 )

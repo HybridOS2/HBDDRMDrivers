@@ -56,10 +56,12 @@
 
 #include "drivers.h"
 
-extern DrmDriverOps* __drm_ex_driver_get(const char* driver_name, int device_fd)
+extern DrmDriverOps* __drm_ex_driver_get(const char* driver_name, int device_fd,
+        int* version)
 {
     _MG_PRINTF("%s called with driver name: %s\n", __func__, driver_name);
 
+    *version = DRM_DRIVER_VERSION;
     if (strcmp(driver_name, "i915") == 0) {
 #ifdef HAVE_DRM_INTEL
         return _drm_device_get_i915_driver(device_fd);

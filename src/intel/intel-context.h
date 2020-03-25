@@ -46,7 +46,7 @@
 #include <drm.h>
 #include <i915_drm.h>
 #include <libdrm/intel_bufmgr.h>
-#include <libdrm/intel_chipset.h>
+#include "intel-chipset.h"
 
 #define DV_PF_555  (1<<8)
 #define DV_PF_565  (2<<8)

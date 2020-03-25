@@ -2,6 +2,10 @@ DRM_INTEL_SOURCE_FILES = \
     intel/intel-reg.h \
     intel/intel-batchbuffer.h \
     intel/intel-context.h \
+    intel/intel-chipset.h \
+    intel/libdrm-macros.h \
+    intel/i915-pciids.h \
+    intel/intel-chipset.c \
     intel/intel-i915-driver.c \
     $(NULL)
 

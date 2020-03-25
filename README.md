@@ -2,16 +2,16 @@
 
 This package contains some DRM graphics drivers for HybridOS.
 
-The drivers run under the DRM NEWGAL engine of MiniGUI 4.1.0
+The drivers run under the DRM NEWGAL engine of MiniGUI 4.0.7/5.0.0
 or later.
 
 ## Usage
 
-...
+
 
 ## Copying
 
-Copyright (C) 2019 FMSoft Technologies
+Copyright (C) 2020 FMSoft Technologies
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the

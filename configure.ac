@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_PREREQ(2.60)
-AC_INIT(hidrmdrivers,0.1.0)
+AC_INIT(hidrmdrivers,0.2.0)
 AC_CONFIG_SRCDIR(src/drivers.c)
 
 dnl Set various version strings - taken gratefully from the SDL sources
@@ -15,7 +15,7 @@ dnl Set various version strings - taken gratefully from the SDL sources
 # set DRMDRIVER_BINARY_AGE and DRMDRIVER_INTERFACE_AGE to 0.
 #
 DRMDRIVER_MAJOR_VERSION=0
-DRMDRIVER_MINOR_VERSION=1
+DRMDRIVER_MINOR_VERSION=2
 DRMDRIVER_MICRO_VERSION=0
 DRMDRIVER_INTERFACE_AGE=0
 DRMDRIVER_BINARY_AGE=0

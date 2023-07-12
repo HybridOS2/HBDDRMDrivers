@@ -8,7 +8,7 @@
 # and loading the cross-compilation settings from CMAKE_TOOLCHAIN_FILE.
 #
 
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.5)
 
 project(DRMDrivers C CXX)
 
@@ -44,7 +44,7 @@ if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang" OR ${CMAKE_CXX_COMPILER_ID} STREQU
 endif ()
 
 if (${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
-    if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "7.3.0")
+    if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "5.4.0")
         message(FATAL_ERROR "GCC 7.3 or newer is required to build DRMDrivers. Use a newer GCC version or Clang.")
     endif ()
 endif ()

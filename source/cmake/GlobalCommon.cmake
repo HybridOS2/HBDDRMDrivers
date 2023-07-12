@@ -15,7 +15,7 @@ if (NOT HAS_RUN_DRMDRIVERS_COMMON)
 
     set(Python_ADDITIONAL_VERSIONS 3)
     find_package(PythonInterp 2.7.0 REQUIRED)
-    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    find_package(Python3 COMPONENTS Interpreter)
 
     # -----------------------------------------------------------------------------
     # Helper macros and feature defines

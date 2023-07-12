@@ -31,10 +31,15 @@ if (HAVE_VMWGFX_DRM_H)
 endif ()
 
 set(DRMDrivers_LIBRARIES
-    LibDRM::LibDRM
-    LibDRM::LibDRMIntel
-    LibUDEV::LibUDEV
+    ${LibDRM_LIBRARIES}
+    ${LibUDEV_LIBRARIES}
 )
+
+if (HAVE_DRM_INTEL)
+    list(APPEND DRMDrivers_LIBRARIES
+        ${LibDRMIntel_LIBRARIES}
+    )
+endif ()
 
 set(DRMDrivers_INTERFACE_LIBRARIES DRMDrivers)
 set(DRMDrivers_INTERFACE_INCLUDE_DIRECTORIES ${DRMDrivers_PRIVATE_FRAMEWORK_HEADERS_DIR})

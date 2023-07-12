@@ -26,14 +26,25 @@
  *
  **************************************************************************/
 
+#undef NDEBUG
+
 #include "config.h"
 
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
+#include <unistd.h>
 
+#include <sys/sysmacros.h>
+#include <sys/types.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <xf86drm.h>
 #include <vmwgfx_drm.h>
+
+#define _DEBUG
 
 #include <minigui/common.h>
 #include <minigui/minigui.h>
@@ -46,6 +57,7 @@
 struct vmwgfx_buffer
 {
     DrmSurfaceBuffer base;
+    off_t map_offset;
     uint64_t map_handle;
     unsigned map_count;
 };
@@ -83,12 +95,14 @@ static DrmSurfaceBuffer* vmwgfx_create_buffer (DrmDriver *driver,
     int bpp, cpp;
     uint32_t pitch, nr_hdr_lines = 0;
 
+    _DBG_PRINTF("called\n");
+
     if (drm_format_to_bpp(drm_format, &bpp, &cpp) == 0) {
         _ERR_PRINTF ("DRM>vmwgfx: not supported format: %d\n", drm_format);
         return NULL;
     }
 
-    pitch = ROUND_TO_MULTIPLE (width * cpp, 256);
+    pitch = ROUND_TO_MULTIPLE (width * cpp, 4);
     if (hdr_size) {
         nr_hdr_lines = hdr_size / pitch;
         if (hdr_size % pitch)
@@ -108,6 +122,7 @@ static DrmSurfaceBuffer* vmwgfx_create_buffer (DrmDriver *driver,
 
         memset(&arg, 0, sizeof(arg));
         req->size = (height + nr_hdr_lines) * pitch;
+        req->size = ROUND_TO_MULTIPLE(req->size, sysconf(_SC_PAGE_SIZE));
 
         do {
             ret = drmCommandWriteRead(driver->fd,
@@ -119,8 +134,10 @@ static DrmSurfaceBuffer* vmwgfx_create_buffer (DrmDriver *driver,
             goto error;
 
         bo->base.handle = rep->handle;
+        bo->base.size = req->size;
         bo->map_handle = rep->map_handle;
-        bo->base.offset = rep->cur_gmr_offset + nr_hdr_lines * pitch;
+        bo->map_offset = rep->cur_gmr_offset;
+        bo->base.offset = nr_hdr_lines * pitch;
     }
 
     bo->base.prime_fd = -1;
@@ -135,9 +152,9 @@ static DrmSurfaceBuffer* vmwgfx_create_buffer (DrmDriver *driver,
     bo->base.buff = NULL;
 
     _DBG_PRINTF ("Allocate GEM object for surface bo: "
-            "width (%d), height (%d), (pitch: %d), size (%lu), offset (%ld)\n",
+            "width (%d), height (%d), (pitch: %d), size (%u), handle (0x%llx)\n",
             bo->base.width, bo->base.height, bo->base.pitch,
-            bo->base.size, bo->base.offset);
+            (unsigned)bo->base.size, (long long unsigned)bo->map_handle);
 
     driver->nr_bufs++;
     return &bo->base;
@@ -147,18 +164,30 @@ error:
     return NULL;
 }
 
+extern void *mmap64(void *addr, size_t len, int prot, int flags,
+        int fildes, uint64_t off);
+
 static uint8_t* vmwgfx_map_buffer(DrmDriver *driver,
         DrmSurfaceBuffer* buffer, int scanout)
 {
     struct vmwgfx_buffer *bo = (struct vmwgfx_buffer *)buffer;
 
-    void *map = drm_mmap(NULL, bo->base.size,
-            PROT_READ | PROT_WRITE, MAP_SHARED, driver->fd, bo->map_handle);
-    if (map == MAP_FAILED)
-        return NULL;
+    assert(bo->map_handle % sysconf(_SC_PAGE_SIZE) == 0);
 
+    void *map = mmap64(NULL, bo->base.size,
+            PROT_READ | PROT_WRITE, MAP_SHARED, driver->fd,
+            bo->map_handle);
+    if (map == NULL || map == MAP_FAILED) {
+        _ERR_PRINTF ("Failed mmap(): %m (size: %u, fd: %d, handle: 0x%llx)\n",
+                (unsigned)bo->base.size, driver->fd,
+                (long long unsigned)bo->map_handle);
+        return NULL;
+    }
+
+    _DBG_PRINTF ("Mapped GEM object: %p\n", map);
     bo->map_count++;
     bo->base.scanout = scanout ? 1 : 0;
+    bo->base.buff = map;
     return map;
 }
 

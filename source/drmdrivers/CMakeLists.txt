@@ -1,4 +1,5 @@
 set_property(DIRECTORY . PROPERTY FOLDER "DRMDrivers")
+set(DRMDrivers_OUTPUT_NAME "drmdrivers")
 
 include(GlobalCommon)
 
@@ -63,5 +64,11 @@ endif ()
 
 install(TARGETS DRMDrivers
         DESTINATION "${LIB_INSTALL_DIR}/"
+)
+
+configure_file(hbddrmdrivers.pc.in
+        ${CMAKE_BINARY_DIR}/source/drmdrivers/hbddrmdrivers.pc @ONLY)
+install(FILES "${DRMDrivers_PKGCONFIG_FILE}"
+        DESTINATION "${LIB_INSTALL_DIR}/pkgconfig"
 )
 

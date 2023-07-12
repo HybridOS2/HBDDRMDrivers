@@ -55,4 +55,7 @@ macro(ADD_WHOLE_ARCHIVE_TO_LIBRARIES _list_name)
     endif ()
 endmacro()
 
+set(DRMDrivers_PKGCONFIG_FILE ${CMAKE_BINARY_DIR}/source/drmdrivers/hbddrmdrivers.pc)
+
+set(DRMDrivers_LIBRARY_TYPE SHARED)
 #include(BubblewrapSandboxChecks)

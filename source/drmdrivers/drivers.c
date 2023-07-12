@@ -1,24 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-//
-//                        IMPORTANT LEGAL NOTICE
-//
-// The following open source license statement does not apply to any
-// entity in the Exception List published by FMSoft.
-//
-// For more information, please visit:
-//
-// https://www.fmsoft.cn/exception-list
-//
-//////////////////////////////////////////////////////////////////////////////
 /*
 ** The DRM driver for HybridOS/MiniGUI.
 **
-** This driver is derived from Mesa.
+** Copyright (C) 2019 ~ 2023 FMSoft Technologies (http://www.fmsoft.cn).
 **
-** Copyright (C) 2019 FMSoft Technologies (http://www.fmsoft.cn).
-**
-** Copyright notice of Mesa:
-**
+** Some drivers are derived from Mesa.
 ** Copyright 2003 VMware, Inc.
 **
 ** Permission is hereby granted, free of charge, to any person obtaining a
@@ -40,15 +25,15 @@
 ** ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 ** TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ** SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-**
 */
+
+#include "config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-#undef _DEBUG
 #include <minigui/common.h>
 #include <minigui/minigui.h>
 #include <minigui/gdi.h>
@@ -65,6 +50,8 @@ extern DrmDriverOps* __drm_ex_driver_get(const char* driver_name, int device_fd,
     if (strcmp(driver_name, "i915") == 0) {
 #ifdef HAVE_DRM_INTEL
         return _drm_device_get_i915_driver(device_fd);
+#else
+        (void)device_fd;
 #endif
     }
 

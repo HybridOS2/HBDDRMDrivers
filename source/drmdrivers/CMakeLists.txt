@@ -1,0 +1,67 @@
+set_property(DIRECTORY . PROPERTY FOLDER "DRMDrivers")
+
+include(GlobalCommon)
+
+set(DRMDrivers_PRIVATE_INCLUDE_DIRECTORIES
+    "${CMAKE_BINARY_DIR}"
+    "${DRMDRIVERS_DIR}"
+    "${DRMDRIVERS_DIR}/include"
+    "${DRMDrivers_DERIVED_SOURCES_DIR}"
+    "${FORWARDING_HEADERS_DIR}"
+    "${LibDRM_INCLUDE_DIR}"
+)
+
+list(APPEND DRMDrivers_SOURCES
+    "${DRMDRIVERS_DIR}/drivers.c"
+)
+
+if (HAVE_DRM_INTEL)
+    list(APPEND DRMDrivers_SOURCES
+        "${DRMDRIVERS_DIR}/intel/intel-chipset.c"
+        "${DRMDRIVERS_DIR}/intel/intel-i915-driver.c"
+    )
+endif ()
+
+set(DRMDrivers_LIBRARIES
+    LibDRM::LibDRM
+    LibDRM::LibDRMIntel
+    LibUDEV::LibUDEV
+)
+
+set(DRMDrivers_INTERFACE_LIBRARIES DRMDrivers)
+set(DRMDrivers_INTERFACE_INCLUDE_DIRECTORIES ${DRMDrivers_PRIVATE_FRAMEWORK_HEADERS_DIR})
+
+DRMDRIVERS_FRAMEWORK_DECLARE(DRMDrivers)
+DRMDRIVERS_INCLUDE_CONFIG_FILES_IF_EXISTS()
+
+DRMDRIVERS_WRAP_SOURCELIST(${DRMDrivers_SOURCES})
+
+DRMDRIVERS_COPY_FILES(DRMDrivers_CopyPrivateHeaders
+    DESTINATION ${DRMDrivers_PRIVATE_FRAMEWORK_HEADERS_DIR}/drmdrivers
+    FILES ${DRMDrivers_PRIVATE_FRAMEWORK_HEADERS}
+    FLATTENED
+)
+list(APPEND DRMDrivers_INTERFACE_DEPENDENCIES DRMDrivers_CopyPrivateHeaders)
+if (NOT INTERNAL_BUILD)
+    add_dependencies(DRMDrivers_CopyPrivateHeaders DRMDrivers)
+endif ()
+
+DRMDRIVERS_COMPUTE_SOURCES(DRMDrivers)
+DRMDRIVERS_FRAMEWORK(DRMDrivers)
+DRMDRIVERS_FRAMEWORK_TARGET(DRMDrivers)
+
+if (${DRMDrivers_LIBRARY_TYPE} MATCHES "SHARED")
+    set_target_properties(DRMDrivers PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
+    install(TARGETS DRMDrivers DESTINATION "${LIB_INSTALL_DIR}")
+endif ()
+
+if (MSVC)
+    set_target_properties(DRMDrivers PROPERTIES
+        COMPILE_PDB_NAME ${DRMDrivers_OUTPUT_NAME}
+    )
+endif ()
+
+install(TARGETS DRMDrivers
+        DESTINATION "${LIB_INSTALL_DIR}/"
+)
+

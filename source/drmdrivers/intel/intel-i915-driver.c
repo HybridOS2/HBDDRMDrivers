@@ -1,24 +1,9 @@
-///////////////////////////////////////////////////////////////////////////////
-//
-//                        IMPORTANT LEGAL NOTICE
-//
-// The following open source license statement does not apply to any
-// entity in the Exception List published by FMSoft.
-//
-// For more information, please visit:
-//
-// https://www.fmsoft.cn/exception-list
-//
-//////////////////////////////////////////////////////////////////////////////
 /*
 ** intel_i915_driver.c: A sample DRM driver for MiniGUI 4.0.7 or later.
 **
 ** This driver is derived from Mesa.
 **
 ** Copyright (C) 2020 FMSoft (http://www.fmsoft.cn).
-**
-** Copyright notice of Mesa:
-**
 ** Copyright 2003 VMware, Inc.
 ** All Rights Reserved.
 **
@@ -41,8 +26,9 @@
 ** ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 ** TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 ** SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-**
 */
+
+#include "config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -523,6 +509,7 @@ static inline drm_intel_bo * create_bo_from_handle (DrmDriver *driver,
 static drm_intel_bo * create_bo_from_handle (DrmDriver *driver,
         uint32_t handle, size_t size)
 {
+    (void)size;
     struct drm_gem_flink flink_request;
     char name [64];
     drm_intel_bo *bo;
@@ -635,6 +622,7 @@ static DrmSurfaceBuffer* i915_create_buffer_from_prime_fd (DrmDriver *driver,
 static uint8_t* i915_map_buffer (DrmDriver *driver,
         DrmSurfaceBuffer* buffer, int scanout)
 {
+    (void)driver;
     my_surface_buffer *my_buffer = (my_surface_buffer *)buffer;
 
     assert (my_buffer != NULL);
@@ -656,6 +644,7 @@ static uint8_t* i915_map_buffer (DrmDriver *driver,
 static void i915_unmap_buffer (DrmDriver *driver,
         DrmSurfaceBuffer* buffer)
 {
+    (void)driver;
     my_surface_buffer *my_buffer = (my_surface_buffer *)buffer;
     assert (my_buffer != NULL);
     assert (my_buffer->base.buff != NULL);
@@ -715,6 +704,7 @@ static inline uint32_t br13_for_cpp(int cpp)
 static inline int i915_clear_buffer (DrmDriver *driver,
         DrmSurfaceBuffer* dst_buf, const GAL_Rect* rc, uint32_t clear_value)
 {
+    (void)driver;
     my_surface_buffer *buffer;
     drm_intel_bo *aper_array[2];
     uint32_t BR13, CMD;
@@ -785,6 +775,7 @@ static inline int i915_clear_buffer (DrmDriver *driver,
 static inline int i915_check_blit (DrmDriver *driver,
         DrmSurfaceBuffer* src_buf, DrmSurfaceBuffer* dst_buf)
 {
+    (void)driver;
     drm_intel_bo *src_bo, *dst_bo;
     uint32_t src_tiling_mode, src_swizzle_mode;
     uint32_t dst_tiling_mode, dst_swizzle_mode;
@@ -920,6 +911,8 @@ static inline int i915_copy_blit (DrmDriver *driver,
 
 DrmDriverOps* _drm_device_get_i915_driver(int device_fd)
 {
+    (void)device_fd;
+
     static DrmDriverOps i915_driver = {
         .create_driver = i915_create_driver,
         .destroy_driver = i915_destroy_driver,

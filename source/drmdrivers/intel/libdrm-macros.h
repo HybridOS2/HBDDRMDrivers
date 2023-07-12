@@ -20,10 +20,12 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef LIBDRM_LIBDRM_H
-#define LIBDRM_LIBDRM_H
+#ifndef LIBDRMDRIVERS_MACROS_H
+#define LIBDRMDRIVERS_MACROS_H
 
-#if HAVE_VISIBILITY
+#include "config.h"
+
+#if HAVE(VISIBILITY)
 #  define drm_private __attribute__((visibility("hidden")))
 #  define drm_public  __attribute__((visibility("default")))
 #else

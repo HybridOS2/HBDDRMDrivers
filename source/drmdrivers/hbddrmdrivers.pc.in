@@ -3,7 +3,7 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: libhidrmdrivers
-Description: Drivers for MiniGUI DRI engine
+Name: hbddrmdrivers
+Description: Sub-drivers for MiniGUI DRM engine
 Version: @PACKAGE_VERSION@
 Requires.private: @DEP_LIBS@

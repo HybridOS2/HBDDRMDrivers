@@ -69,7 +69,6 @@ find_library(LibDRM_LIBRARY
     HINTS ${PC_LIBDRM_LIBDIR} ${PC_LIBDRM_LIBRARY_DIRS}
 )
 
-
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(LibDRM
     FOUND_VAR LibDRM_FOUND

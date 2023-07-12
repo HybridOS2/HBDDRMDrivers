@@ -25,6 +25,8 @@
 
 #include "config.h"
 
+#define ROUND_TO_MULTIPLE(n, m) (((n) + (((m) - 1))) & ~((m) - 1))
+
 #if HAVE(VISIBILITY)
 #  define drm_private __attribute__((visibility("hidden")))
 #  define drm_public  __attribute__((visibility("default")))

@@ -36,20 +36,26 @@
  *
  **************************************************************************/
 
-#ifndef _DRM_MINIGUI_DRIVERS_H_
-#define _DRM_MINIGUI_DRIVERS_H_
+#ifndef HBDDRMDRIVERS_DRIVERS_H
+#define HBDDRMDRIVERS_DRIVERS_H
+
+#include "config.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif  /* __cplusplus */
 
-#ifdef HAVE_DRM_INTEL
-DrmDriverOps* _drm_device_get_i915_driver(int device_fd);
+#if HAVE(VMWGFX_DRM_H)
+DrmDriverOps* _drm_device_get_vmwgfx_driver(int devfd) WTF_INTERNAL;
+#endif
+
+#if HAVE(DRM_INTEL)
+DrmDriverOps* _drm_device_get_i915_driver(int devfd) WTF_INTERNAL;
 #endif
 
 #ifdef __cplusplus
 }
 #endif  /* __cplusplus */
 
-#endif /* _DRM_MINIGUI_DRIVERS_H_ */
+#endif /* HBDDRMDRIVERS_DRIVERS_H */
 

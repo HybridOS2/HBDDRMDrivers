@@ -35,8 +35,6 @@
 #include <string.h>
 #include <time.h>
 
-#undef _DEBUG
-
 #include <minigui/common.h>
 #include <minigui/minigui.h>
 #include <minigui/gdi.h>
@@ -61,12 +59,16 @@
 #include <xf86drm.h>
 #include <xf86drmMode.h>
 #include <i915_drm.h>
-#include <libdrm/intel_bufmgr.h>
+#include <intel_bufmgr.h>
 
+#include "intel-reg.h"
 #include "intel-reg.h"
 #include "intel-context.h"
 #include "intel-batchbuffer.h"
 #include "intel-chipset.h"
+
+#include "libdrm-macros.h"
+#include "helpers.h"
 
 static void intel_batchbuffer_reset(struct _DrmDriver *driver)
 {
@@ -351,68 +353,6 @@ typedef struct _my_surface_buffer {
     DrmSurfaceBuffer base;
     drm_intel_bo *bo;
 } my_surface_buffer;
-
-#define ROUND_TO_MULTIPLE(n, m) (((n) + (((m) - 1))) & ~((m) - 1))
-
-static int drm_format_to_bpp(uint32_t drm_format,
-        int* bpp, int* cpp)
-{
-    switch (drm_format) {
-        case DRM_FORMAT_RGB332:
-        case DRM_FORMAT_BGR233:
-            *bpp = 8;
-            *cpp = 1;
-            break;
-
-        case DRM_FORMAT_XRGB4444:
-        case DRM_FORMAT_XBGR4444:
-        case DRM_FORMAT_RGBX4444:
-        case DRM_FORMAT_BGRX4444:
-        case DRM_FORMAT_ARGB4444:
-        case DRM_FORMAT_ABGR4444:
-        case DRM_FORMAT_RGBA4444:
-        case DRM_FORMAT_BGRA4444:
-        case DRM_FORMAT_XRGB1555:
-        case DRM_FORMAT_XBGR1555:
-        case DRM_FORMAT_RGBX5551:
-        case DRM_FORMAT_BGRX5551:
-        case DRM_FORMAT_ARGB1555:
-        case DRM_FORMAT_ABGR1555:
-        case DRM_FORMAT_RGBA5551:
-        case DRM_FORMAT_BGRA5551:
-        case DRM_FORMAT_RGB565:
-        case DRM_FORMAT_BGR565:
-            *bpp = 16;
-            *cpp = 2;
-            break;
-
-            /* 24 bpp is not supported by i915
-               case DRM_FORMAT_RGB888:
-               case DRM_FORMAT_BGR888:
-               bpp = 24;
-               cpp = 3;
-               break;
-             */
-
-        case DRM_FORMAT_XRGB8888:
-        case DRM_FORMAT_XBGR8888:
-        case DRM_FORMAT_RGBX8888:
-        case DRM_FORMAT_BGRX8888:
-        case DRM_FORMAT_ARGB8888:
-        case DRM_FORMAT_ABGR8888:
-        case DRM_FORMAT_RGBA8888:
-        case DRM_FORMAT_BGRA8888:
-            *bpp = 32;
-            *cpp = 4;
-            break;
-
-        default:
-            return 0;
-            break;
-    }
-
-    return 1;
-}
 
 static my_surface_buffer* i915_create_buffer_helper (DrmDriver *driver,
         drm_intel_bo *bo)

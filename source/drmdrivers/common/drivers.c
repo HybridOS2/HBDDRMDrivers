@@ -41,21 +41,25 @@
 
 #include "drivers.h"
 
-extern DrmDriverOps* __drm_ex_driver_get(const char* driver_name, int device_fd,
+extern DrmDriverOps* __drm_ex_driver_get(const char* driver_name, int dev_fd,
         int* version)
 {
     _MG_PRINTF("%s called with driver name: %s\n", __func__, driver_name);
 
     *version = DRM_DRIVER_VERSION;
-    if (strcmp(driver_name, "i915") == 0) {
-#ifdef HAVE_DRM_INTEL
-        return _drm_device_get_i915_driver(device_fd);
-#else
-        (void)device_fd;
+    if (strcmp(driver_name, "vmwgfx") == 0) {
+#if HAVE(VMWGFX_DRM_H)
+        return _drm_device_get_vmwgfx_driver(dev_fd);
+#endif
+    }
+    else if (strcmp(driver_name, "i915") == 0) {
+#if HAVE(DRM_INTEL)
+        return _drm_device_get_i915_driver(dev_fd);
 #endif
     }
 
-    _MG_PRINTF("%s unknown DRM driver: %s\n", __func__, driver_name);
+    _MG_PRINTF("%s unknown DRM driver: %s (%d)\n", __func__,
+            driver_name, dev_fd);
     return NULL;
 }
 

@@ -18,12 +18,17 @@ add_definitions(-DDRMDRIVERS_API_VERSION_STRING="${DRMDRIVERS_API_VERSION}")
 find_package(LibDRM 2.4.0 REQUIRED)
 find_package(LibUDEV 200 REQUIRED)
 find_package(MiniGUI 5.0.0 REQUIRED)
-find_package(LibDRMIntel 2.4.0)
 
-if (NOT LibDRMIntel_FOUND)
-    SET_AND_EXPOSE_TO_BUILD(HAVE_DRM_INTEL OFF)
-else ()
-    SET_AND_EXPOSE_TO_BUILD(HAVE_DRM_INTEL ON)
+if (LibDRM_FOUND)
+
+    DRMDRIVERS_CHECK_HAVE_INCLUDE(HAVE_VMWGFX_DRM_H "${LibDRM_INCLUDE_DIR}/vmwgfx_drm.h")
+
+    find_package(LibDRMIntel 2.4.0)
+    if (NOT LibDRMIntel_FOUND)
+        SET_AND_EXPOSE_TO_BUILD(HAVE_DRM_INTEL OFF)
+    else ()
+        SET_AND_EXPOSE_TO_BUILD(HAVE_DRM_INTEL ON)
+    endif ()
 endif ()
 
 # Public options specific to the HybridOS port. Do not add any options here unless

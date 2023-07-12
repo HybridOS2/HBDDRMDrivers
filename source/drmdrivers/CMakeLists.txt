@@ -13,13 +13,20 @@ set(DRMDrivers_PRIVATE_INCLUDE_DIRECTORIES
 )
 
 list(APPEND DRMDrivers_SOURCES
-    "${DRMDRIVERS_DIR}/drivers.c"
+    "${DRMDRIVERS_DIR}/common/drivers.c"
+    "${DRMDRIVERS_DIR}/common/helpers.c"
 )
 
 if (HAVE_DRM_INTEL)
     list(APPEND DRMDrivers_SOURCES
         "${DRMDRIVERS_DIR}/intel/intel-chipset.c"
         "${DRMDRIVERS_DIR}/intel/intel-i915-driver.c"
+    )
+endif ()
+
+if (HAVE_VMWGFX_DRM_H)
+    list(APPEND DRMDrivers_SOURCES
+        "${DRMDRIVERS_DIR}/vmwgfx/vmwgfx.c"
     )
 endif ()
 

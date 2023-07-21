@@ -32,6 +32,12 @@ if (LibDRM_FOUND)
     endif ()
 endif ()
 
+if (LIBRGA_FOUND)
+    SET_AND_EXPOSE_TO_BUILD(HAVE_LIBRGA ON)
+else ()
+    SET_AND_EXPOSE_TO_BUILD(HAVE_LIBRGA OFF)
+endif ()
+
 # Public options specific to the HybridOS port. Do not add any options here unless
 # there is a strong reason we should support changing the value of the option,
 # and the option is not relevant to any other DRMDrivers ports.

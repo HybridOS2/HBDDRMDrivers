@@ -41,6 +41,16 @@ if (HAVE_DRM_INTEL)
     )
 endif ()
 
+if (HAVE_LIBRGA)
+    list(APPEND DRMDrivers_SOURCES
+        "${DRMDRIVERS_DIR}/rockchip/rockchip-drm.c"
+    )
+
+    list(APPEND DRMDrivers_LIBRARIES
+        ${LIBRGA_LIBRARIES}
+    )
+endif ()
+
 set(DRMDrivers_INTERFACE_LIBRARIES DRMDrivers)
 set(DRMDrivers_INTERFACE_INCLUDE_DIRECTORIES ${DRMDrivers_PRIVATE_FRAMEWORK_HEADERS_DIR})
 

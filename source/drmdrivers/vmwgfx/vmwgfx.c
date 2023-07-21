@@ -115,14 +115,14 @@ static DrmSurfaceBuffer* vmwgfx_create_buffer (DrmDriver *driver,
         return NULL;
 
     {
+	size_t size = (height + nr_hdr_lines) * pitch;
         int ret;
         union drm_vmw_alloc_dmabuf_arg arg;
         struct drm_vmw_alloc_dmabuf_req *req = &arg.req;
         struct drm_vmw_dmabuf_rep *rep = &arg.rep;
 
         memset(&arg, 0, sizeof(arg));
-        req->size = (height + nr_hdr_lines) * pitch;
-        req->size = ROUND_TO_MULTIPLE(req->size, sysconf(_SC_PAGE_SIZE));
+        req->size = size;
 
         do {
             ret = drmCommandWriteRead(driver->fd,
@@ -133,8 +133,8 @@ static DrmSurfaceBuffer* vmwgfx_create_buffer (DrmDriver *driver,
         if (ret)
             goto error;
 
+        bo->base.size = size;
         bo->base.handle = rep->handle;
-        bo->base.size = req->size;
         bo->map_handle = rep->map_handle;
         bo->map_offset = rep->cur_gmr_offset;
         bo->base.offset = nr_hdr_lines * pitch;

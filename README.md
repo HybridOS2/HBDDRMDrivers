@@ -1,8 +1,8 @@
-# DRM Drivers for HybridOS
+# Userland DRM Drivers for HybridOS
 
-This package contains some sub-drivers for HybridOS 2.0/MiniGUI 5.0.
+This package contains some userland drivers for HybridOS 2.0/MiniGUI 5.0.
 
-The sub-drivers run under the DRM NEWGAL engine of MiniGUI 5.0.0 or later.
+The userland DRM drivers run under the DRM NEWGAL engine of MiniGUI 5.0.13 or later.
 
 ## Usage
 

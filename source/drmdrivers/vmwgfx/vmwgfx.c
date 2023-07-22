@@ -90,7 +90,7 @@ vmwgfx_destroy_driver(DrmDriver *driver)
 
 static DrmSurfaceBuffer* vmwgfx_create_buffer (DrmDriver *driver,
         uint32_t drm_format, uint32_t hdr_size,
-        uint32_t width, uint32_t height)
+        uint32_t width, uint32_t height, uint32_t flags)
 {
     int bpp, cpp;
     uint32_t pitch, nr_hdr_lines = 0;
@@ -115,7 +115,7 @@ static DrmSurfaceBuffer* vmwgfx_create_buffer (DrmDriver *driver,
         return NULL;
 
     {
-	size_t size = (height + nr_hdr_lines) * pitch;
+        size_t size = (height + nr_hdr_lines) * pitch;
         int ret;
         union drm_vmw_alloc_dmabuf_arg arg;
         struct drm_vmw_alloc_dmabuf_req *req = &arg.req;
@@ -146,6 +146,7 @@ static DrmSurfaceBuffer* vmwgfx_create_buffer (DrmDriver *driver,
     bo->base.drm_format = drm_format;
     bo->base.bpp = bpp;
     bo->base.cpp = cpp;
+    bo->base.scanout = (flags & DRM_SURBUF_TYPE_SCANOUT) ? 1 : 0;
     bo->base.width = width;
     bo->base.height = height;
     bo->base.pitch = pitch;
@@ -168,7 +169,7 @@ extern void *mmap64(void *addr, size_t len, int prot, int flags,
         int fildes, uint64_t off);
 
 static uint8_t* vmwgfx_map_buffer(DrmDriver *driver,
-        DrmSurfaceBuffer* buffer, int scanout)
+        DrmSurfaceBuffer* buffer)
 {
     struct vmwgfx_buffer *bo = (struct vmwgfx_buffer *)buffer;
 
@@ -186,7 +187,6 @@ static uint8_t* vmwgfx_map_buffer(DrmDriver *driver,
 
     _DBG_PRINTF ("Mapped GEM object: %p\n", map);
     bo->map_count++;
-    bo->base.scanout = scanout ? 1 : 0;
     bo->base.buff = map;
     return map;
 }
@@ -234,10 +234,6 @@ DrmDriverOps *_drm_device_get_vmwgfx_driver(int device_fd)
         .map_buffer = vmwgfx_map_buffer,
         .unmap_buffer = vmwgfx_unmap_buffer,
         .destroy_buffer = vmwgfx_destroy_buffer,
-        .clear_buffer = NULL,
-        .check_blit = NULL,
-        .copy_blit = NULL,
-        .alpha_pixel_blit = NULL,
     };
 
     return &vmwgfx_driver;

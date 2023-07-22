@@ -378,7 +378,7 @@ static my_surface_buffer* i915_create_buffer_helper (DrmDriver *driver,
 
 static DrmSurfaceBuffer* i915_create_buffer (DrmDriver *driver,
         uint32_t drm_format, uint32_t hdr_size,
-        uint32_t width, uint32_t height)
+        uint32_t width, uint32_t height, uint32_t flags)
 {
     drm_intel_bo *bo;
     my_surface_buffer *buffer;
@@ -419,6 +419,7 @@ static DrmSurfaceBuffer* i915_create_buffer (DrmDriver *driver,
     buffer->base.drm_format = drm_format;
     buffer->base.bpp = bpp;
     buffer->base.cpp = cpp;
+    buffer->base.scanout = (flags & DRM_SURBUF_TYPE_SCANOUT) ? 1 : 0;
     buffer->base.width = width;
     buffer->base.height = height;
     buffer->base.pitch = pitch;
@@ -480,11 +481,51 @@ static drm_intel_bo * create_bo_from_handle (DrmDriver *driver,
 }
 #endif  /* not defined HAVE_CREATE_FROM_HANDLE */
 
+static int check_format_size(size_t size,
+        uint32_t drm_format, uint32_t hdr_size,
+        uint32_t width, uint32_t height, uint32_t pitch)
+{
+    int bpp, cpp;
+    uint32_t nr_hdr_lines = 0;
+
+    if (drm_format_to_bpp(drm_format, &bpp, &cpp) == 0) {
+        _ERR_PRINTF("DRM>i915: not supported format: %d\n", drm_format);
+        return -1;
+    }
+
+    if (pitch != ROUND_TO_MULTIPLE(width * cpp, 256)) {
+        _ERR_PRINTF("DRM>i915: bad pitch value: %u\n", pitch);
+        return -1;
+    }
+
+    if (hdr_size) {
+        nr_hdr_lines = hdr_size / pitch;
+        if (hdr_size % pitch)
+            nr_hdr_lines++;
+    }
+
+    if (size && size != (height + nr_hdr_lines) * pitch) {
+        _ERR_PRINTF("DRM>i915: bad size: %lu\n", (unsigned long)size);
+        return -1;
+    }
+
+    return 0;
+}
+
 static DrmSurfaceBuffer* i915_create_buffer_from_handle (DrmDriver *driver,
-        uint32_t handle, size_t size)
+        uint32_t handle, size_t size,
+        uint32_t drm_format, uint32_t hdr_size,
+        uint32_t width, uint32_t height, uint32_t pitch)
 {
     drm_intel_bo *bo;
     my_surface_buffer *buffer;
+
+    if (check_format_size(size, drm_format, hdr_size, width, height, pitch)) {
+        _ERR_PRINTF("DRM>i915: bad surface parameters for handle %u: "
+                "whole size: %lu, header size: %u, %u x %u, pitch: %u\n",
+                handle, (unsigned long)size, hdr_size, width, height, pitch);
+        return NULL;
+    }
 
     bo = create_bo_from_handle (driver, handle, size);
     if (bo == NULL) {
@@ -506,11 +547,19 @@ static DrmSurfaceBuffer* i915_create_buffer_from_handle (DrmDriver *driver,
 }
 
 static DrmSurfaceBuffer* i915_create_buffer_from_name (DrmDriver *driver,
-        uint32_t name)
+        uint32_t name, uint32_t drm_format, uint32_t hdr_size,
+        uint32_t width, uint32_t height, uint32_t pitch)
 {
     drm_intel_bo *bo;
     my_surface_buffer *buffer;
     char sz_name [64];
+
+    if (check_format_size(0, drm_format, hdr_size, width, height, pitch)) {
+        _ERR_PRINTF("DRM>i915: bad surface parameters for name %u: "
+                "whole size: <unknown>, header size: %u, %u x %u, pitch: %u\n",
+                name, hdr_size, width, height, pitch);
+        return NULL;
+    }
 
     sprintf(sz_name, "buffer %u", name);
     bo = drm_intel_bo_gem_create_from_name (driver->manager,
@@ -534,10 +583,19 @@ static DrmSurfaceBuffer* i915_create_buffer_from_name (DrmDriver *driver,
 }
 
 static DrmSurfaceBuffer* i915_create_buffer_from_prime_fd (DrmDriver *driver,
-        int prime_fd, size_t size)
+        int prime_fd, size_t size,
+        uint32_t drm_format, uint32_t hdr_size,
+        uint32_t width, uint32_t height, uint32_t pitch)
 {
     drm_intel_bo *bo;
     my_surface_buffer *buffer;
+
+    if (check_format_size(size, drm_format, hdr_size, width, height, pitch)) {
+        _ERR_PRINTF("DRM>i915: bad surface parameters for prime fd %d: "
+                "whole size: %lu, header size: %u, %u x %u, pitch: %u\n",
+                prime_fd, (unsigned long)size, hdr_size, width, height, pitch);
+        return NULL;
+    }
 
     bo = drm_intel_bo_gem_create_from_prime (driver->manager,
             prime_fd, size);
@@ -560,7 +618,7 @@ static DrmSurfaceBuffer* i915_create_buffer_from_prime_fd (DrmDriver *driver,
 }
 
 static uint8_t* i915_map_buffer (DrmDriver *driver,
-        DrmSurfaceBuffer* buffer, int scanout)
+        DrmSurfaceBuffer* buffer)
 {
     (void)driver;
     my_surface_buffer *my_buffer = (my_surface_buffer *)buffer;
@@ -568,13 +626,11 @@ static uint8_t* i915_map_buffer (DrmDriver *driver,
     assert (my_buffer != NULL);
     assert (my_buffer->base.buff == NULL);
 
-    if (scanout) {
+    if (buffer->scanout) {
         drm_intel_gem_bo_map_gtt (my_buffer->bo);
-        buffer->scanout = 1;
     }
     else {
         drm_intel_bo_map (my_buffer->bo, 1);
-        buffer->scanout = 0;
     }
 
     my_buffer->base.buff = my_buffer->bo->virtual;
@@ -641,7 +697,7 @@ static inline uint32_t br13_for_cpp(int cpp)
     }
 }
 
-static inline int i915_clear_buffer (DrmDriver *driver,
+static inline int i915_fill_rect (DrmDriver *driver,
         DrmSurfaceBuffer* dst_buf, const GAL_Rect* rc, uint32_t clear_value)
 {
     (void)driver;
@@ -712,34 +768,12 @@ static inline int i915_clear_buffer (DrmDriver *driver,
     return 0;
 }
 
-static inline int i915_check_blit (DrmDriver *driver,
-        DrmSurfaceBuffer* src_buf, DrmSurfaceBuffer* dst_buf)
-{
-    (void)driver;
-    drm_intel_bo *src_bo, *dst_bo;
-    uint32_t src_tiling_mode, src_swizzle_mode;
-    uint32_t dst_tiling_mode, dst_swizzle_mode;
-
-    src_bo = ((my_surface_buffer*)src_buf)->bo;
-    dst_bo = ((my_surface_buffer*)dst_buf)->bo;
-    drm_intel_bo_get_tiling(src_bo, &src_tiling_mode, &src_swizzle_mode);
-    drm_intel_bo_get_tiling(dst_bo, &dst_tiling_mode, &dst_swizzle_mode);
-
-    if (src_tiling_mode == dst_tiling_mode &&
-            src_swizzle_mode == dst_swizzle_mode &&
-            src_buf->drm_format == dst_buf->drm_format)
-        return 0;
-
-    _DBG_PRINTF("CANNOT blit src_buf(%p) to dst_buf(%p)\n",
-            src_buf, dst_buf);
-    return -1;
-}
-
-static inline int i915_copy_blit (DrmDriver *driver,
+static int i915_copy_blit(DrmDriver *driver,
         DrmSurfaceBuffer* src_buf, const GAL_Rect* src_rc,
         DrmSurfaceBuffer* dst_buf, const GAL_Rect* dst_rc,
-        ColorLogicalOp logic_op)
+        const DrmBlitOperations *ops)
 {
+    (void)ops;
     my_surface_buffer *buffer;
     unsigned int cpp;
     int src_pitch;
@@ -803,7 +837,7 @@ static inline int i915_copy_blit (DrmDriver *driver,
         return -1;
     }
 
-    BR13 = br13_for_cpp(cpp) | translate_raster_op(logic_op) << 16;
+    BR13 = br13_for_cpp(cpp) | translate_raster_op(ops->rop) << 16;
 
     switch (cpp) {
         case 1:
@@ -849,6 +883,55 @@ static inline int i915_copy_blit (DrmDriver *driver,
     return 0;
 }
 
+static CB_DRM_BLIT i915_check_blit (DrmDriver *driver,
+        DrmSurfaceBuffer* src_buf, const GAL_Rect *srcrc,
+        DrmSurfaceBuffer* dst_buf, const GAL_Rect *dstrc,
+        const DrmBlitOperations *ops)
+{
+    (void)driver;
+    drm_intel_bo *src_bo, *dst_bo;
+    uint32_t src_tiling_mode, src_swizzle_mode;
+    uint32_t dst_tiling_mode, dst_swizzle_mode;
+
+    /* TODO: only copy supprted so far. */
+    if (srcrc->w != srcrc->h || srcrc->h != dstrc->h ||
+            ops->cpy != BLIT_COPY_NORMAL ||
+            ops->key != BLIT_COLORKEY_NONE ||
+            ops->alf != BLIT_ALPHA_NONE ||
+            (ops->bld != COLOR_BLEND_LEGACY &&
+             ops->bld != COLOR_BLEND_PD_SRC_OVER)) {
+        return NULL;
+    }
+
+    src_bo = ((my_surface_buffer*)src_buf)->bo;
+    dst_bo = ((my_surface_buffer*)dst_buf)->bo;
+    drm_intel_bo_get_tiling(src_bo, &src_tiling_mode, &src_swizzle_mode);
+    drm_intel_bo_get_tiling(dst_bo, &dst_tiling_mode, &dst_swizzle_mode);
+
+    if (src_tiling_mode == dst_tiling_mode &&
+            src_swizzle_mode == dst_swizzle_mode &&
+            src_buf->drm_format == dst_buf->drm_format)
+        return i915_copy_blit;
+
+    _DBG_PRINTF("CANNOT blit src_buf(%p) to dst_buf(%p)\n",
+            src_buf, dst_buf);
+    return NULL;
+}
+
+static int i915_copy_buff(DrmDriver *driver,
+        DrmSurfaceBuffer* src_buf, DrmSurfaceBuffer* dst_buf)
+{
+    if (src_buf->width != dst_buf->width ||
+            src_buf->height != dst_buf->height) {
+        return -1;
+    }
+
+    GAL_Rect src_rc = { 0, 0, src_buf->width, src_buf->height };
+    GAL_Rect dst_rc = src_rc;
+
+    return i915_copy_blit(driver, src_buf, &src_rc, dst_buf, &dst_rc, NULL);
+}
+
 DrmDriverOps* _drm_device_get_i915_driver(int device_fd)
 {
     (void)device_fd;
@@ -864,10 +947,9 @@ DrmDriverOps* _drm_device_get_i915_driver(int device_fd)
         .map_buffer = i915_map_buffer,
         .unmap_buffer = i915_unmap_buffer,
         .destroy_buffer = i915_destroy_buffer,
-        .clear_buffer = i915_clear_buffer,
+        .fill_rect = i915_fill_rect,
         .check_blit = i915_check_blit,
-        .copy_blit = i915_copy_blit,
-        .alpha_pixel_blit = NULL,
+        .copy_buff = i915_copy_buff,
     };
 
     return &i915_driver;

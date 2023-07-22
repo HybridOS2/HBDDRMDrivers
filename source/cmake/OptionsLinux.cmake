@@ -17,7 +17,7 @@ add_definitions(-DDRMDRIVERS_API_VERSION_STRING="${DRMDRIVERS_API_VERSION}")
 
 find_package(LibDRM 2.4.0 REQUIRED)
 find_package(LibUDEV 200 REQUIRED)
-find_package(MiniGUI 5.0.0 REQUIRED)
+find_package(MiniGUI 5.0.14 REQUIRED)
 find_package(LibRGA 1.9.0)
 
 if (LibDRM_FOUND)

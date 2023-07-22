@@ -221,13 +221,20 @@ rockchip_format_from_drm_format(uint32_t drm_format, int* bpp, int* cpp)
 
 static DrmSurfaceBuffer* rockchip_create_buffer(DrmDriver *drv,
         uint32_t drm_format, uint32_t hdr_size,
-        uint32_t width, uint32_t height)
+        uint32_t width, uint32_t height, uint32_t flags)
 {
     my_surface_buffer *buffer = NULL;
     int rk_format;
     int bpp, cpp;
     uint32_t pitch, nr_hdr_lines = 0;
-    uint32_t flags = ROCKCHIP_BO_CONTIG | ROCKCHIP_BO_CACHABLE;
+    uint32_t rk_flags;
+
+    if (flags & DRM_SURBUF_TYPE_SCANOUT) {
+        rk_flags = ROCKCHIP_BO_CONTIG;
+    }
+    else {
+        rk_flags = ROCKCHIP_BO_CACHABLE;
+    }
 
     rk_format = rockchip_format_from_drm_format(drm_format, &bpp, &cpp);
     if (rk_format == -1) {
@@ -257,7 +264,7 @@ static DrmSurfaceBuffer* rockchip_create_buffer(DrmDriver *drv,
 
     struct drm_rockchip_gem_create req = {
         .size = size,
-        .flags = flags,
+        .flags = rk_flags,
     };
 
     if (drmIoctl(drv->devfd, DRM_IOCTL_ROCKCHIP_GEM_CREATE, &req)){
@@ -272,6 +279,7 @@ static DrmSurfaceBuffer* rockchip_create_buffer(DrmDriver *drv,
     buffer->base.drm_format = drm_format;
     buffer->base.bpp = bpp;
     buffer->base.cpp = cpp;
+    buffer->base.scanout = (flags & DRM_SURBUF_TYPE_SCANOUT) ? 1 : 0;
     buffer->base.width = width;
     buffer->base.height = height;
     buffer->base.pitch = pitch;
@@ -498,10 +506,6 @@ DrmDriverOps* _drm_device_get_rockchip_driver(int device_fd)
         // .map_buffer = rockchip_map_buffer,
         // .unmap_buffer = rockchip_unmap_buffer,
         .destroy_buffer = rockchip_destroy_buffer,
-        // .clear_buffer = rockchip_clear_buffer,
-        // .check_blit = rockchip_check_blit,
-        // .copy_blit = rockchip_copy_blit,
-        .alpha_pixel_blit = NULL,
     };
 
     return &rockchip_driver;

@@ -68,7 +68,7 @@ typedef struct my_surface_buffer {
     DrmSurfaceBuffer    base;
     int                 nr_hdr_lines;
     int                 rk_format;
-    uint32_t            flags;
+    uint32_t            rk_flags;
     rga_buffer_handle_t rga_handle;
     rga_buffer_t        rga_buffer;
 } my_surface_buffer;
@@ -219,6 +219,29 @@ rockchip_format_from_drm_format(uint32_t drm_format, int* bpp, int* cpp)
     return rk_format;
 }
 
+static void wrap_rga_buffer(DrmDriver *drv, my_surface_buffer *buf)
+{
+    if (drmPrimeHandleToFD(drv->devfd, buf->base.handle,
+            DRM_RDWR | DRM_CLOEXEC, &buf->base.prime_fd)) {
+        _WRN_PRINTF("DRM>ROCKCHIP: failed to get prime FD of buffer: %m.\n");
+    }
+    else {
+        uint32_t height = buf->nr_hdr_lines + buf->base.height;
+
+        im_handle_param_t param = { (uint32_t)buf->base.width, height,
+            (uint32_t)buf->rk_format };
+        buf->rga_handle = importbuffer_fd(buf->base.prime_fd, &param);
+        if (buf->rga_handle) {
+            buf->rga_buffer = wrapbuffer_handle(buf->rga_handle,
+                    buf->base.width, height, buf->rk_format,
+                    buf->base.pitch, buf->base.height);
+        }
+        else {
+            _WRN_PRINTF("DRM>ROCKCHIP: failed importbuffer_fd(): %m.\n");
+        }
+    }
+}
+
 static DrmSurfaceBuffer* rockchip_create_buffer(DrmDriver *drv,
         uint32_t drm_format, uint32_t hdr_size,
         uint32_t width, uint32_t height, uint32_t flags)
@@ -252,7 +275,7 @@ static DrmSurfaceBuffer* rockchip_create_buffer(DrmDriver *drv,
             nr_hdr_lines++;
     }
 
-    uint32_t size = (height + nr_hdr_lines) * pitch;
+    size_t size = (height + nr_hdr_lines) * pitch;
     if (size == 0) {
         _ERR_PRINTF("DRM>ROCKCHIP: zero size requested (%u x %u)\n",
                 width, height);
@@ -286,12 +309,13 @@ static DrmSurfaceBuffer* rockchip_create_buffer(DrmDriver *drv,
     buffer->base.width = width;
     buffer->base.height = height;
     buffer->base.pitch = pitch;
+    buffer->base.size = size;
     buffer->base.offset = nr_hdr_lines * pitch;
     buffer->base.buff = NULL;
 
     buffer->nr_hdr_lines = nr_hdr_lines;
     buffer->rk_format = rk_format;
-    buffer->flags = flags;
+    buffer->rk_flags = rk_flags;
 
     drv->nr_bufs++;
 
@@ -300,23 +324,7 @@ static DrmSurfaceBuffer* rockchip_create_buffer(DrmDriver *drv,
             buffer->base.width, buffer->base.height, buffer->base.pitch,
             buffer->base.size, buffer->base.offset);
 
-    if (drmPrimeHandleToFD(drv->devfd, req.handle,
-            DRM_RDWR | DRM_CLOEXEC, &buffer->base.prime_fd)) {
-        _WRN_PRINTF("DRM>ROCKCHIP: failed to get prime FD of buffer: %m.\n");
-    }
-    else {
-        im_handle_param_t param = {(uint32_t)width,
-            (uint32_t)(nr_hdr_lines + height), (uint32_t)rk_format};
-        buffer->rga_handle = importbuffer_fd(buffer->base.prime_fd, &param);
-        if (buffer->rga_handle) {
-            buffer->rga_buffer = wrapbuffer_handle(buffer->rga_handle,
-                    width, height, rk_format, pitch, height);
-        }
-        else {
-            _WRN_PRINTF("DRM>ROCKCHIP: failed importbuffer_fd(): %m.\n");
-        }
-    }
-
+    wrap_rga_buffer(drv, buffer);
     return &buffer->base;
 
 failed:
@@ -357,142 +365,298 @@ static void rockchip_destroy_buffer(DrmDriver *drv, DrmSurfaceBuffer *buffer)
     free(mybuf);
 }
 
-#if 0
-struct rockchip_bo *rockchip_bo_from_handle(DrmDriver *drv,
-            uint32_t handle, uint32_t flags, uint32_t size)
+static int check_format_size(size_t size,
+        uint32_t drm_format, int *bpp, int *cpp,
+        uint32_t hdr_size, uint32_t width, uint32_t height, uint32_t pitch)
 {
-    struct rockchip_bo *bo;
+    int rk_format;
+    uint32_t nr_hdr_lines = 0;
 
-    if (size == 0) {
-        fprintf(stderr, "invalid size.\n");
-        return NULL;
+    rk_format = rockchip_format_from_drm_format(drm_format, bpp, cpp);
+    if (rk_format == -1) {
+        _ERR_PRINTF("DRM>i915: not supported format: %d\n", drm_format);
+        return -1;
     }
 
-    bo = calloc(1, sizeof(*bo));
-    if (!bo) {
-        fprintf(stderr, "failed to create bo[%s].\n",
-                strerror(errno));
-        return NULL;
+    if (pitch != ROUND_TO_MULTIPLE(width * *cpp, 4)) {
+        _ERR_PRINTF("DRM>i915: bad pitch value: %u\n", pitch);
+        return -1;
     }
 
-    bo->drv = drv;
-    bo->handle = handle;
-    bo->size = size;
-    bo->flags = flags;
+    if (hdr_size) {
+        nr_hdr_lines = hdr_size / pitch;
+        if (hdr_size % pitch)
+            nr_hdr_lines++;
+    }
 
-    return bo;
+    if (size && size != (height + nr_hdr_lines) * pitch) {
+        _ERR_PRINTF("DRM>i915: bad size: %lu\n", (unsigned long)size);
+        return -1;
+    }
+
+    return rk_format;
 }
 
-struct rockchip_bo *rockchip_bo_from_name(DrmDriver *drv,
-                        uint32_t name)
+static DrmSurfaceBuffer* rockchip_create_buffer_from_handle(DrmDriver *drv,
+        uint32_t handle, size_t size,
+        uint32_t drm_format, uint32_t hdr_size,
+        uint32_t width, uint32_t height, uint32_t pitch)
 {
-    struct rockchip_bo *bo;
+    my_surface_buffer *buffer = NULL;
+    int rk_format;
+    int bpp, cpp;
+
+    rk_format = check_format_size(size, drm_format, &bpp, &cpp,
+            hdr_size, width, height, pitch);
+    if (rk_format == -1) {
+        _ERR_PRINTF("DRM>ROCKCHIP: bad surface parameters for handle %u: "
+                "whole size: <unknown>, header size: %u, %u x %u, pitch: %u\n",
+                handle, hdr_size, width, height, pitch);
+        return NULL;
+    }
+
+    uint32_t nr_hdr_lines = hdr_size / pitch;
+
+    buffer = calloc(1, sizeof(*buffer));
+    if (buffer == NULL) {
+        _ERR_PRINTF ("DRM>ROCKCHIP: could not allocate surface buffer: %m\n");
+        goto failed;
+    }
+
+    buffer->base.handle = handle;
+    buffer->base.prime_fd = -1;
+    buffer->base.name = 0;
+    buffer->base.fb_id = 0;
+    buffer->base.drm_format = drm_format;
+    buffer->base.bpp = bpp;
+    buffer->base.cpp = cpp;
+    buffer->base.scanout = 0;
+    buffer->base.width = width;
+    buffer->base.height = height;
+    buffer->base.pitch = pitch;
+    buffer->base.size = size;
+    buffer->base.offset = nr_hdr_lines * pitch;
+    buffer->base.buff = NULL;
+
+    buffer->nr_hdr_lines = nr_hdr_lines;
+    buffer->rk_format = rk_format;
+    buffer->rk_flags = 0;
+
+    drv->nr_bufs++;
+
+    _DBG_PRINTF("Create surface buffer from handle: %u; "
+            "width (%d), height (%d), (pitch: %d), size (%lu), offset (%ld)\n",
+            buffer->base.handle, buffer->base.width, buffer->base.height,
+            buffer->base.pitch, buffer->base.size, buffer->base.offset);
+
+    wrap_rga_buffer(drv, buffer);
+    return &buffer->base;
+
+failed:
+    if (buffer)
+        free(buffer);
+    return NULL;
+}
+
+static DrmSurfaceBuffer* rockchip_create_buffer_from_name(DrmDriver *drv,
+        uint32_t name, uint32_t drm_format, uint32_t hdr_size,
+        uint32_t width, uint32_t height, uint32_t pitch)
+{
+    my_surface_buffer *buffer = NULL;
+    int rk_format;
+    int bpp, cpp;
+
+    rk_format = check_format_size(0, drm_format, &bpp, &cpp, hdr_size,
+            width, height, pitch);
+    if (rk_format == -1) {
+        _ERR_PRINTF("DRM>ROCKCHIP: bad surface parameters for name %u: "
+                "whole size: <unknown>, header size: %u, %u x %u, pitch: %u\n",
+                name, hdr_size, width, height, pitch);
+        return NULL;
+    }
+
+    uint32_t nr_hdr_lines = hdr_size / pitch;
+    uint32_t size = (height + nr_hdr_lines) * pitch;
+
+    buffer = calloc(1, sizeof(*buffer));
+    if (buffer == NULL) {
+        _ERR_PRINTF ("DRM>ROCKCHIP: could not allocate surface buffer: %m\n");
+        goto failed;
+    }
+
     struct drm_gem_open req = {
         .name = name,
     };
 
-    bo = calloc(1, sizeof(*bo));
-    if (!bo) {
-        fprintf(stderr, "failed to allocate bo[%s].\n",
-                strerror(errno));
-        return NULL;
+    if (drmIoctl(drv->devfd, DRM_IOCTL_GEM_OPEN, &req)) {
+        fprintf(stderr, "failed to open gem object: %m.\n");
+        goto failed;
     }
 
-    if (drmIoctl(drv->fd, DRM_IOCTL_GEM_OPEN, &req)) {
-        fprintf(stderr, "failed to open gem object[%s].\n",
-                strerror(errno));
-        goto err_free_bo;
-    }
+    buffer->base.handle = req.handle;
+    buffer->base.prime_fd = -1;
+    buffer->base.name = name;
+    buffer->base.fb_id = 0;
+    buffer->base.drm_format = drm_format;
+    buffer->base.bpp = bpp;
+    buffer->base.cpp = cpp;
+    buffer->base.scanout = 0;
+    buffer->base.width = width;
+    buffer->base.height = height;
+    buffer->base.pitch = pitch;
+    buffer->base.size = size;
+    buffer->base.offset = nr_hdr_lines * pitch;
+    buffer->base.buff = NULL;
 
-    bo->drv = drv;
-    bo->name = name;
-    bo->handle = req.handle;
+    buffer->nr_hdr_lines = nr_hdr_lines;
+    buffer->rk_format = rk_format;
+    buffer->rk_flags = 0;
 
-    return bo;
+    drv->nr_bufs++;
 
-err_free_bo:
-    free(bo);
+    _DBG_PRINTF("Create surface buffer from name: %u; "
+            "width (%d), height (%d), (pitch: %d), size (%lu), offset (%ld)\n",
+            buffer->base.name, buffer->base.width, buffer->base.height,
+            buffer->base.pitch, buffer->base.size, buffer->base.offset);
+
+    wrap_rga_buffer(drv, buffer);
+    return &buffer->base;
+
+failed:
+    if (buffer)
+        free(buffer);
     return NULL;
 }
 
-/*
- * Get a gem global object name from a gem object handle.
- *
- * @bo: a rockchip buffer object including gem handle.
- * @name: a gem global object name to be got by kernel driver.
- *
- * this interface is used to get a gem global object name from a gem object
- * handle to a buffer that wants to share it with another process.
- *
- * if true, return 0 else negative.
- */
-int rockchip_bo_get_name(struct rockchip_bo *bo, uint32_t *name)
+static DrmSurfaceBuffer *rockchip_create_buffer_from_prime_fd(DrmDriver *drv,
+        int prime_fd, size_t size,
+        uint32_t drm_format, uint32_t hdr_size,
+        uint32_t width, uint32_t height, uint32_t pitch)
 {
-    if (!bo->name) {
-        struct drm_gem_flink req = {
-            .handle = bo->handle,
-        };
-        int ret;
+    my_surface_buffer *buffer = NULL;
+    int rk_format;
+    int bpp, cpp;
 
-        ret = drmIoctl(bo->drv->fd, DRM_IOCTL_GEM_FLINK, &req);
-        if (ret) {
-            fprintf(stderr, "failed to get gem global name[%s].\n",
-                    strerror(errno));
-            return ret;
-        }
-
-        bo->name = req.name;
+    size_t file_size;
+    off_t seek = lseek (prime_fd, 0, SEEK_END);
+    if (seek != -1)
+        file_size = seek;
+    else {
+        _ERR_PRINTF("DRM>ROCKCHIP: Failed to get size of buffer from fd (%d): "
+                "%m\n", prime_fd);
+        goto failed;
     }
 
-    *name = bo->name;
+    _DBG_PRINTF("File size got from lseek(): %lu\n", (unsigned long)file_size);
 
-    return 0;
-}
+    if (size == 0) {
+        size = file_size;
+    }
+    else if (size > file_size) {
+        _ERR_PRINTF("DRM>ROCKCHIP: size (%lu) doesn't match file size (%lu)\n",
+                (unsigned long)size, (unsigned long)file_size);
+        goto failed;
+    }
 
-uint32_t rockchip_bo_handle(struct rockchip_bo *bo)
-{
-    return bo->handle;
+    rk_format = check_format_size(size, drm_format, &bpp, &cpp, hdr_size,
+            width, height, pitch);
+    if (rk_format == -1) {
+        _ERR_PRINTF("DRM>ROCKCHIP: bad surface parameters for prime fd %d: "
+                "whole size: %lu, header size: %u, %u x %u, pitch: %u\n",
+                prime_fd, (unsigned long)size, hdr_size, width, height, pitch);
+        goto failed;
+    }
+
+    uint32_t nr_hdr_lines = hdr_size / pitch;
+
+    buffer = calloc(1, sizeof(*buffer));
+    if (buffer == NULL) {
+        _ERR_PRINTF ("DRM>ROCKCHIP: could not allocate surface buffer: %m\n");
+        goto failed;
+    }
+
+    buffer->base.handle = 0;
+    buffer->base.prime_fd = prime_fd;
+    buffer->base.name = 0;
+    buffer->base.fb_id = 0;
+    buffer->base.drm_format = drm_format;
+    buffer->base.bpp = bpp;
+    buffer->base.cpp = cpp;
+    buffer->base.scanout = 0;
+    buffer->base.width = width;
+    buffer->base.height = height;
+    buffer->base.pitch = pitch;
+    buffer->base.size = size;
+    buffer->base.offset = nr_hdr_lines * pitch;
+    buffer->base.buff = NULL;
+
+    buffer->nr_hdr_lines = nr_hdr_lines;
+    buffer->rk_format = rk_format;
+    buffer->rk_flags = 0;
+
+    drv->nr_bufs++;
+
+    _DBG_PRINTF("Create surface buffer from prime fd: %d; "
+            "width (%d), height (%d), (pitch: %d), size (%lu), offset (%ld)\n",
+            buffer->base.prime_fd, buffer->base.width, buffer->base.height,
+            buffer->base.pitch, buffer->base.size, buffer->base.offset);
+
+    wrap_rga_buffer(drv, buffer);
+    return &buffer->base;
+
+failed:
+    if (buffer)
+        free(buffer);
+    return NULL;
 }
 
 extern void *mmap64(void *addr, size_t len, int prot, int flags,
         int fildes, uint64_t off);
 
-/*
- * Mmap a buffer to user space.
- *
- * @bo: a rockchip buffer object including a gem object handle to be mmapped
- *    to user space.
- *
- * if true, user pointer mmaped else NULL.
- */
-void *rockchip_bo_map(struct rockchip_bo *bo)
+static uint8_t *rockchip_map_buffer(DrmDriver *drv,
+        DrmSurfaceBuffer *buffer)
 {
-    if (!bo->vaddr) {
-        DrmDriver *drv = bo->drv;
+    assert(buffer->buff == NULL);
+
+    if (buffer->prime_fd) {
+        buffer->buff = mmap(0, buffer->size,
+                PROT_READ | PROT_WRITE, MAP_SHARED, buffer->prime_fd, 0);
+    }
+    else {
         struct drm_rockchip_gem_map_off req = {
-            .handle = bo->handle,
+            .handle = buffer->handle,
         };
-        int ret;
 
-        ret = drmIoctl(drv->fd, DRM_IOCTL_ROCKCHIP_GEM_MAP_OFFSET, &req);
-        if (ret) {
-            fprintf(stderr, "failed to ioctl gem map offset[%s].\n",
-                strerror(errno));
+        if (drmIoctl(drv->devfd, DRM_IOCTL_ROCKCHIP_GEM_MAP_OFFSET, &req)) {
+            _ERR_PRINTF("failed to ioctl gem map offset: %m.\n");
             return NULL;
         }
 
-        bo->vaddr = mmap64(0, bo->size, PROT_READ | PROT_WRITE,
-               MAP_SHARED, drv->fd, req.offset);
-        if (bo->vaddr == MAP_FAILED) {
-            fprintf(stderr, "failed to mmap buffer[%s].\n",
-                strerror(errno));
-            return NULL;
-        }
+        buffer->buff = mmap64(0, buffer->size, PROT_READ | PROT_WRITE,
+               MAP_SHARED, drv->devfd, req.offset);
     }
 
-    return bo->vaddr;
+    if (buffer->buff == MAP_FAILED) {
+        buffer->buff = NULL;
+        _ERR_PRINTF("failed to mmap buffer: %m.\n");
+        return NULL;
+    }
+
+    return buffer->buff;
 }
-#endif
+
+static void rockchip_unmap_buffer(DrmDriver *drv,
+        DrmSurfaceBuffer* buffer)
+{
+    (void)drv;
+    assert(buffer->buff);
+
+    if (munmap(buffer->buff, buffer->size)) {
+        _WRN_PRINTF("Failed munmap: %m\n");
+    }
+
+    buffer->buff = NULL;
+}
 
 DrmDriverOps* _drm_device_get_rockchip_driver(int device_fd)
 {
@@ -503,11 +667,11 @@ DrmDriverOps* _drm_device_get_rockchip_driver(int device_fd)
         .destroy_driver = rockchip_destroy_driver,
         .flush_driver = NULL,
         .create_buffer = rockchip_create_buffer,
-        // .create_buffer_from_handle = rockchip_create_buffer_from_handle,
-        // .create_buffer_from_name = rockchip_create_buffer_from_name,
-        // .create_buffer_from_prime_fd = rockchip_create_buffer_from_prime_fd,
-        // .map_buffer = rockchip_map_buffer,
-        // .unmap_buffer = rockchip_unmap_buffer,
+        .create_buffer_from_handle = rockchip_create_buffer_from_handle,
+        .create_buffer_from_name = rockchip_create_buffer_from_name,
+        .create_buffer_from_prime_fd = rockchip_create_buffer_from_prime_fd,
+        .map_buffer = rockchip_map_buffer,
+        .unmap_buffer = rockchip_unmap_buffer,
         .destroy_buffer = rockchip_destroy_buffer,
     };
 

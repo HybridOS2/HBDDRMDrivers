@@ -25,6 +25,9 @@
 
 #include "config.h"
 
+#define IS_SURFACE_FOR_SCANOUT(flags) \
+    ((flags & DRM_SURBUF_TYPE_MASK) == DRM_SURBUF_TYPE_SCANOUT)
+
 #ifdef __cplusplus
 extern "C" {
 #endif  /* __cplusplus */

@@ -229,8 +229,11 @@ static DrmSurfaceBuffer* rockchip_create_buffer(DrmDriver *drv,
     uint32_t pitch, nr_hdr_lines = 0;
     uint32_t rk_flags;
 
-    if (flags & DRM_SURBUF_TYPE_SCANOUT) {
+    if ((flags & DRM_SURBUF_TYPE_MASK) == DRM_SURBUF_TYPE_SCANOUT) {
         rk_flags = ROCKCHIP_BO_CONTIG;
+    }
+    else if ((flags & DRM_SURBUF_TYPE_MASK) == DRM_SURBUF_TYPE_SHADOW) {
+        rk_flags = ROCKCHIP_BO_CONTIG | ROCKCHIP_BO_CACHABLE;
     }
     else {
         rk_flags = ROCKCHIP_BO_CACHABLE;
@@ -279,7 +282,7 @@ static DrmSurfaceBuffer* rockchip_create_buffer(DrmDriver *drv,
     buffer->base.drm_format = drm_format;
     buffer->base.bpp = bpp;
     buffer->base.cpp = cpp;
-    buffer->base.scanout = (flags & DRM_SURBUF_TYPE_SCANOUT) ? 1 : 0;
+    buffer->base.scanout = IS_SURFACE_FOR_SCANOUT(flags) ? 1 : 0;
     buffer->base.width = width;
     buffer->base.height = height;
     buffer->base.pitch = pitch;

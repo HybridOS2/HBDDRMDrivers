@@ -146,7 +146,7 @@ static DrmSurfaceBuffer* vmwgfx_create_buffer (DrmDriver *driver,
     bo->base.drm_format = drm_format;
     bo->base.bpp = bpp;
     bo->base.cpp = cpp;
-    bo->base.scanout = (flags & DRM_SURBUF_TYPE_SCANOUT) ? 1 : 0;
+    bo->base.scanout = IS_SURFACE_FOR_SCANOUT(flags) ? 1 : 0;
     bo->base.width = width;
     bo->base.height = height;
     bo->base.pitch = pitch;

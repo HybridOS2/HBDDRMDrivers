@@ -674,7 +674,7 @@ static void i915_destroy_buffer (DrmDriver *driver,
     _DBG_PRINTF("Buffer object (%u) destroied\n", my_buffer->base.handle);
 }
 
-static unsigned int translate_raster_op(ColorLogicalOp logicop)
+static inline unsigned int translate_raster_op(ColorLogicalOp logicop)
 {
     return logicop | (logicop << 4);
 }
@@ -697,7 +697,7 @@ static inline uint32_t br13_for_cpp(int cpp)
     }
 }
 
-static inline int i915_fill_rect (DrmDriver *driver,
+static int i915_fill_rect (DrmDriver *driver,
         DrmSurfaceBuffer* dst_buf, const GAL_Rect* rc, uint32_t clear_value)
 {
     (void)driver;

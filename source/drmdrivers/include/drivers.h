@@ -45,6 +45,10 @@
 extern "C" {
 #endif  /* __cplusplus */
 
+#if HAVE(HAVE_LIBRGA)
+DrmDriverOps* _drm_device_get_rockchip_driver(int devfd) WTF_INTERNAL;
+#endif
+
 #if HAVE(VMWGFX_DRM_H)
 DrmDriverOps* _drm_device_get_vmwgfx_driver(int devfd) WTF_INTERNAL;
 #endif

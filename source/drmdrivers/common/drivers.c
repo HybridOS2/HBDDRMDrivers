@@ -47,7 +47,12 @@ extern DrmDriverOps* __drm_ex_driver_get(const char* driver_name, int dev_fd,
     _MG_PRINTF("%s called with driver name: %s\n", __func__, driver_name);
 
     *version = DRM_DRIVER_VERSION;
-    if (strcmp(driver_name, "vmwgfx") == 0) {
+    if (strcmp(driver_name, "rockchip") == 0) {
+#if HAVE(HAVE_LIBRGA)
+        return _drm_device_get_rockchip_driver(dev_fd);
+#endif
+    }
+    else if (strcmp(driver_name, "vmwgfx") == 0) {
 #if HAVE(VMWGFX_DRM_H)
         return _drm_device_get_vmwgfx_driver(dev_fd);
 #endif

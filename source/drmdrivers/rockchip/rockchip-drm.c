@@ -696,9 +696,7 @@ static int get_usage_opt(const DrmBlitOperations *ops, im_opt_t *opt)
     int usage = 0;
 
     switch (ops->cpy) {
-        case BLIT_COPY_NORMAL:
-            break;
-        case BLIT_COPY_SCALE:
+        case BLIT_COPY_TRANSLATE:
             break;
         case BLIT_COPY_ROT_90:
             usage |= IM_HAL_TRANSFORM_ROT_90;
@@ -824,7 +822,7 @@ static int get_usage_opt(const DrmBlitOperations *ops, im_opt_t *opt)
         return -1;
     }
 
-    return usage;
+    return usage | IM_SYNC;
 }
 
 
@@ -906,7 +904,9 @@ static CB_DRM_BLIT rockchip_check_blit(DrmDriver *drv,
 }
 
 static int rockchip_copy_buff(DrmDriver *drv,
-        DrmSurfaceBuffer *src_buf, DrmSurfaceBuffer *dst_buf)
+        DrmSurfaceBuffer *src_buf, const GAL_Rect *src_rc,
+        DrmSurfaceBuffer *dst_buf, const GAL_Rect *dst_rc,
+        BlitCopyOperation op)
 {
     (void)drv;
     my_surface_buffer *src = (my_surface_buffer *)src_buf;
@@ -917,139 +917,45 @@ static int rockchip_copy_buff(DrmDriver *drv,
     }
 
     int usage = IM_SYNC;
-    im_rect src_imrc = { 0, src->nr_hdr_lines, src_buf->width, src_buf->height };
-    im_rect dst_imrc = { 0, dst->nr_hdr_lines, dst_buf->width, dst_buf->height };
-
-    if (src_imrc.width != dst_imrc.width ||
-            src_imrc.height != dst_imrc.height) {
-        return -1;
-    }
-
-    IM_STATUS status;
-    status = imcheck(src->rga_buffer, dst->rga_buffer,
-            src_imrc, dst_imrc, usage);
-    if (status) {
-        return -1;
-    }
-
-    rga_buffer_t dummy_rga = {};
-    im_rect dummy_imrc = {};
-    im_opt_t dummy_opt = {};
-    status= improcess(src->rga_buffer, dst->rga_buffer, dummy_rga,
-            dst_imrc, src_imrc, dummy_imrc, &dummy_opt, usage);
-    if (status) {
-        _WRN_PRINTF("Failed imfill(): %s\n",  imStrError(status));
-        return -1;
-    }
-
-    return 0;
-}
-
-static int rockchip_rotate_buff(DrmDriver *drv,
-        DrmSurfaceBuffer *src_buf, DrmSurfaceBuffer *dst_buf,
-        BlitCopyOperation op)
-{
-    (void)drv;
-    my_surface_buffer *src = (my_surface_buffer *)src_buf;
-    my_surface_buffer *dst = (my_surface_buffer *)dst_buf;
-
-    if (src->rga_handle == 0 || dst->rga_handle == 0) {
-        return -1;
-    }
-
-    int usage = 0;
-    im_rect src_imrc = { 0, src->nr_hdr_lines, src_buf->width, src_buf->height };
-    im_rect dst_imrc = { 0, dst->nr_hdr_lines, dst_buf->width, dst_buf->height };
+    im_rect src_imrc = {
+        src_rc->x, src_rc->y + src->nr_hdr_lines, src_rc->w, src_rc->h };
+    im_rect dst_imrc = {
+        dst_rc->x, dst_rc->y + src->nr_hdr_lines, dst_rc->w, dst_rc->h };
 
     switch (op) {
+        case BLIT_COPY_TRANSLATE:
+            break;
+
         case BLIT_COPY_ROT_90:
-            if (src_imrc.width != dst_imrc.height ||
-                    src_imrc.height != dst_imrc.width) {
-                return -1;
-            }
             usage |= IM_HAL_TRANSFORM_ROT_90;
             break;
 
         case BLIT_COPY_ROT_180:
-            if (src_imrc.width != dst_imrc.width ||
-                    src_imrc.height != dst_imrc.height) {
-                return -1;
-            }
             usage |= IM_HAL_TRANSFORM_ROT_180;
             break;
 
         case BLIT_COPY_ROT_270:
-            if (src_imrc.width != dst_imrc.height ||
-                    src_imrc.height != dst_imrc.width) {
-                return -1;
-            }
             usage |= IM_HAL_TRANSFORM_ROT_270;
             break;
 
-        default:
-            return -1;
-    }
-
-    IM_STATUS status;
-    status = imcheck(src->rga_buffer, dst->rga_buffer,
-            src_imrc, dst_imrc, usage);
-    if (status) {
-        return -1;
-    }
-
-    rga_buffer_t dummy_rga = {};
-    im_rect dummy_imrc = {};
-    im_opt_t dummy_opt = {};
-    status= improcess(src->rga_buffer, dst->rga_buffer, dummy_rga,
-            dst_imrc, src_imrc, dummy_imrc, &dummy_opt, usage);
-    if (status) {
-        _WRN_PRINTF("Failed improcess(): %s\n", imStrError(status));
-        return -1;
-    }
-
-    return 0;
-}
-
-static int rockchip_flip_buff(DrmDriver *drv,
-        DrmSurfaceBuffer *src_buf, DrmSurfaceBuffer *dst_buf,
-        BlitCopyOperation op)
-{
-    (void)drv;
-    my_surface_buffer *src = (my_surface_buffer *)src_buf;
-    my_surface_buffer *dst = (my_surface_buffer *)dst_buf;
-
-    if (src->rga_handle == 0 || dst->rga_handle == 0) {
-        return -1;
-    }
-
-    int usage = 0;
-    im_rect src_imrc = { 0, src->nr_hdr_lines, src_buf->width, src_buf->height };
-    im_rect dst_imrc = { 0, dst->nr_hdr_lines, dst_buf->width, dst_buf->height };
-
-    if (src_imrc.width != dst_imrc.width ||
-            src_imrc.height != dst_imrc.height) {
-        return -1;
-    }
-
-    switch (op) {
         case BLIT_COPY_FLIP_H:
             usage |= IM_HAL_TRANSFORM_FLIP_H;
             break;
+
         case BLIT_COPY_FLIP_V:
             usage |= IM_HAL_TRANSFORM_FLIP_V;
             break;
+
         case BLIT_COPY_FLIP_H_V:
             usage |= IM_HAL_TRANSFORM_FLIP_H_V;
             break;
-
-        default:
-            return -1;
     }
 
     IM_STATUS status;
     status = imcheck(src->rga_buffer, dst->rga_buffer,
             src_imrc, dst_imrc, usage);
     if (status) {
+        _DBG_PRINTF("Failed imcheck(%d): %s\n", op, imStrError(status));
         return -1;
     }
 
@@ -1084,8 +990,6 @@ DrmDriverOps* _drm_device_get_rockchip_driver(int device_fd)
         .fill_rect = rockchip_fill_rect,
         .check_blit = rockchip_check_blit,
         .copy_buff = rockchip_copy_buff,
-        .rotate_buff = rockchip_rotate_buff,
-        .flip_buff = rockchip_flip_buff,
     };
 
     return &rockchip_driver;

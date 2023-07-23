@@ -676,7 +676,8 @@ static void i915_destroy_buffer (DrmDriver *driver,
 
 static inline unsigned int translate_raster_op(ColorLogicalOp logicop)
 {
-    return logicop | (logicop << 4);
+    unsigned int op = logicop >> COLOR_LOGICOP_SHIFT;
+    return op | (op << 4);
 }
 
 static inline uint32_t br13_for_cpp(int cpp)
@@ -773,7 +774,6 @@ static int i915_copy_blit(DrmDriver *driver,
         DrmSurfaceBuffer* dst_buf, const GAL_Rect* dst_rc,
         const DrmBlitOperations *ops)
 {
-    (void)ops;
     my_surface_buffer *buffer;
     unsigned int cpp;
     int src_pitch;
@@ -837,7 +837,8 @@ static int i915_copy_blit(DrmDriver *driver,
         return -1;
     }
 
-    BR13 = br13_for_cpp(cpp) | translate_raster_op(ops->rop) << 16;
+    BR13 = br13_for_cpp(cpp) |
+        translate_raster_op(ops ? ops->rop : COLOR_LOGICOP_COPY) << 16;
 
     switch (cpp) {
         case 1:
@@ -895,7 +896,7 @@ static CB_DRM_BLIT i915_check_blit (DrmDriver *driver,
 
     /* TODO: only copy supprted so far. */
     if (srcrc->w != srcrc->h || srcrc->h != dstrc->h ||
-            ops->cpy != BLIT_COPY_NORMAL ||
+            ops->cpy != BLIT_COPY_TRANSLATE ||
             ops->key != BLIT_COLORKEY_NONE ||
             ops->alf != BLIT_ALPHA_NONE ||
             (ops->bld != COLOR_BLEND_LEGACY &&
@@ -919,17 +920,16 @@ static CB_DRM_BLIT i915_check_blit (DrmDriver *driver,
 }
 
 static int i915_copy_buff(DrmDriver *driver,
-        DrmSurfaceBuffer* src_buf, DrmSurfaceBuffer* dst_buf)
+        DrmSurfaceBuffer *src_buf, const GAL_Rect *src_rc,
+        DrmSurfaceBuffer *dst_buf, const GAL_Rect *dst_rc,
+        BlitCopyOperation op)
 {
-    if (src_buf->width != dst_buf->width ||
-            src_buf->height != dst_buf->height) {
+    if (src_rc->w != dst_rc->w || src_rc->h != dst_rc->h ||
+            op != BLIT_COPY_TRANSLATE) {
         return -1;
     }
 
-    GAL_Rect src_rc = { 0, 0, src_buf->width, src_buf->height };
-    GAL_Rect dst_rc = src_rc;
-
-    return i915_copy_blit(driver, src_buf, &src_rc, dst_buf, &dst_rc, NULL);
+    return i915_copy_blit(driver, src_buf, src_rc, dst_buf, dst_rc, NULL);
 }
 
 DrmDriverOps* _drm_device_get_i915_driver(int device_fd)

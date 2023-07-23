@@ -75,6 +75,8 @@ static DrmDriver* vmwgfx_create_driver(int device_fd)
     driver = calloc(1, sizeof(DrmDriver));
     driver->fd = device_fd;
     driver->nr_bufs = 0;
+
+    _DBG_PRINTF ("Driver %p created\n", driver);
     return driver;
 }
 
@@ -86,6 +88,8 @@ vmwgfx_destroy_driver(DrmDriver *driver)
     }
 
     free(driver);
+
+    _DBG_PRINTF ("Driver %p destroyed\n", driver);
 }
 
 static DrmSurfaceBuffer* vmwgfx_create_buffer (DrmDriver *driver,
@@ -94,8 +98,6 @@ static DrmSurfaceBuffer* vmwgfx_create_buffer (DrmDriver *driver,
 {
     int bpp, cpp;
     uint32_t pitch, nr_hdr_lines = 0;
-
-    _DBG_PRINTF("called\n");
 
     if (drm_format_to_bpp(drm_format, &bpp, &cpp) == 0) {
         _ERR_PRINTF ("DRM>vmwgfx: not supported format: %d\n", drm_format);
@@ -152,10 +154,10 @@ static DrmSurfaceBuffer* vmwgfx_create_buffer (DrmDriver *driver,
     bo->base.pitch = pitch;
     bo->base.buff = NULL;
 
-    _DBG_PRINTF ("Allocate GEM object for surface bo: "
-            "width (%d), height (%d), (pitch: %d), size (%u), handle (0x%llx)\n",
+    _DBG_PRINTF ("Allocate GEM object for surface: "
+            "width (%d), height (%d), (pitch: %d), size (%u), handle (0x%x) map handle (0x%lx)\n",
             bo->base.width, bo->base.height, bo->base.pitch,
-            (unsigned)bo->base.size, (long long unsigned)bo->map_handle);
+            (unsigned)bo->base.size, bo->base.handle, (unsigned long)bo->map_handle);
 
     driver->nr_bufs++;
     return &bo->base;
@@ -179,13 +181,14 @@ static uint8_t* vmwgfx_map_buffer(DrmDriver *driver,
             PROT_READ | PROT_WRITE, MAP_SHARED, driver->fd,
             bo->map_handle);
     if (map == NULL || map == MAP_FAILED) {
-        _ERR_PRINTF ("Failed mmap(): %m (size: %u, fd: %d, handle: 0x%llx)\n",
+        _ERR_PRINTF ("Failed mmap(): %m (size: %u, fd: %d, handle: 0x%lx)\n",
                 (unsigned)bo->base.size, driver->fd,
-                (long long unsigned)bo->map_handle);
+                (unsigned long)bo->map_handle);
         return NULL;
     }
 
-    _DBG_PRINTF ("Mapped GEM object: %p\n", map);
+    _DBG_PRINTF ("Mapped GEM object 0x%lx to %p\n",
+            (unsigned long)bo->map_handle, map);
     bo->map_count++;
     bo->base.buff = map;
     return map;
@@ -198,6 +201,7 @@ static void vmwgfx_unmap_buffer(DrmDriver *driver,
     struct vmwgfx_buffer *bo = (struct vmwgfx_buffer *)buffer;
 
     bo->map_count--;
+    _DBG_PRINTF ("Unmapped GEM object: 0x%lx\n", (unsigned long)bo->map_handle);
 }
 
 static void vmwgfx_destroy_buffer(DrmDriver *driver, DrmSurfaceBuffer* buffer)
@@ -214,6 +218,8 @@ static void vmwgfx_destroy_buffer(DrmDriver *driver, DrmSurfaceBuffer* buffer)
     memset(&arg, 0, sizeof(arg));
     arg.handle = bo->base.handle;
     drmCommandWrite(driver->fd, DRM_VMW_UNREF_DMABUF, &arg, sizeof(arg));
+
+    _DBG_PRINTF ("GEM object 0x%x destroyed\n", bo->base.handle);
 
     driver->nr_bufs--;
     free(bo);
